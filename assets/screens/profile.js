@@ -299,6 +299,11 @@ BB.screens.settings = function () {
               Your name stays attached.</div></div>
           <span class="pill">${API.me().invitesLeft} of ${API.me().invitesTotal}</span>
         </div>
+        <div class="row" style="margin-top:2px;flex-wrap:wrap">
+          <button class="btn sm" data-share-invite>Share an invitation</button>
+          <span class="small muted">Writes the message for you. The code comes
+            from your own sheet, one per named person.</span>
+        </div>
         <div class="set-row">
           <div><div class="t">Referred by</div>
             <div class="d">${esc(API.me().referredBy)}.</div></div>

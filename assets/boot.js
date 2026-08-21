@@ -314,6 +314,35 @@
       return;
     }
 
+    /* ---- Sharing an invitation --------------------------------------------
+       Composes the message and hands it to the device's own share sheet, or
+       the clipboard on desktop. The code stays a placeholder on purpose: real
+       codes live in the founders' sheet, one per named person, and are never
+       stored in this app. Blackbook composes; the member picks the recipient
+       in their own messenger, so no contact list ever touches us. */
+    const shareInv = e.target.closest("[data-share-invite]");
+    if (shareInv) {
+      const text = "I'm building something with a partner: a private network "
+        + "for people who can actually do deals. Referral only, no directory, "
+        + "no feed. I get two invitations and I'm spending one on you. Your "
+        + "code is XXXX-XXXX, at https://blackbook.london. It's free while "
+        + "we're in the founding intake, and the one thing we ask for is your "
+        + "honest feedback.";
+      const remind = "Now swap XXXX-XXXX for a code from your sheet, and write their name against it.";
+      if (navigator.share) {
+        navigator.share({ text })
+          .then(() => toast("Shared. " + remind))
+          .catch(() => {});   /* cancelled: no toast, nothing happened */
+      } else if (navigator.clipboard) {
+        navigator.clipboard.writeText(text)
+          .then(() => toast("Copied. " + remind))
+          .catch(() => toast("Could not copy. The message is in invite-codes.md."));
+      } else {
+        toast("The message template is in invite-codes.md.");
+      }
+      return;
+    }
+
     /* ---- Your data -------------------------------------------------------- */
     const data = e.target.closest("[data-data]");
     if (data) {
