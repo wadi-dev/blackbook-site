@@ -5,7 +5,8 @@
    real endpoint would return, so swapping to fetch() later is a change in this
    file only — no screen touches the data directly.
 
-   All people are fictional.
+   The founders are real. There are no other records: the network
+   fills with real members or stays honestly empty.
    ========================================================================== */
 
 const DB = {};
@@ -13,22 +14,16 @@ const DB = {};
 /* ---------------------------------------------------------------- people -- */
 
 DB.members = [
-  /* The signed-in member. Real name, fictional seat: the role, firm, ask,
-     gives and achievements below are placeholder and describe nobody. */
-  { id: "wg", first: "Wadi", last: "Guilden", initials: "WG",
+  /* The founders. The only real people, and the only records. Everything a
+     founder has not written themselves is absent rather than invented: no
+     ask until Wadi writes one in the product, no achievements against a real
+     name, and Sam's gives are his to declare. */
+  { id: "wg", first: "Wadi", last: "Hussain", initials: "WH",
     role: "Co-Founder & Chief Operating Officer", firm: "Blackbook", city: "London",
     sector: "Corporate Leadership", sub: "Chief Operating Officer",
-    founder: true, founding: false, verified: "14 Feb 2026",
-    /* Invitations and referrer used to be printed straight into the settings
-       markup as "2 of 2" and "The founders". They are facts about a member, so
-       they belong in the member record where they can be wrong rather than in
-       the template where they cannot be right. */
+    founder: true, founding: false, verified: "30 Jul 2026",
     invitesTotal: 2, invitesLeft: 2, referredBy: "The founders",
-    ask: "A chair for a €400m European industrial platform. Someone who has taken a family-owned business through its first institutional cycle and out the other side.",
-    askType: "talent", askAge: 4, askOptIns: 3, askOpen: true,
-    /* Drafted from things Wadi has actually said, not invented. Each one still
-       needs him to confirm the wording and set his own confidence, because
-       confidence is a judgement about whether he would really make the call. */
+    ask: "", askType: "door", askAge: 0, askOptIns: 0, askOpen: false,
     gives: [
       { text: "Introductions to MDs and directors at bulge-bracket banks in London",
         type: "door", confidence: 5 },
@@ -37,176 +32,16 @@ DB.members = [
       { text: "How to get a UK data-protection position right before launch rather than after",
         type: "judgment", confidence: 5 }
     ],
-    /* Deliberately empty. This record carries a real person's name, so it must
-       not carry invented credentials. Everything else on it (the seat, the ask,
-       the gives) is placeholder that exists to demonstrate the mechanics; a
-       quantified claim about somebody's career is a different thing, and it
-       read as a CV once the name above it was real. */
     achievements: [] },
 
-  { id: "jr", first: "Julian", last: "Reyes", initials: "JR",
-    role: "Founding Partner", firm: "Reyes & Co.", city: "New York",
-    sector: "Private Credit", sub: "Special Situations",
-    founder: true, founding: false, verified: "14 Feb 2026",
-    ask: "A regulator-side view on how the UK will treat NAV facilities in 2027. I will pay for it in deal flow.",
-    askType: "judgment", askAge: 11, askOptIns: 1, askOpen: true,
-    gives: [
-      { text: "Creditor-side introductions in European workouts", type: "door", confidence: 7 },
-      { text: "Direct lending capital, $40–120m", type: "capital", confidence: 6 }
-    ],
-    achievements: [
-      "Founded a $3.4bn special-situations platform from a single-LP seed",
-      "Twelve years on a bulge-bracket restructuring desk before launching",
-      "Lead creditor in three of the decade's largest European workouts"
-    ],
-    /* Julian's circle invitation is the demo's pending one, so accepting it
-       has a visible payoff: this appears the moment both sides have agreed. */
-    closed: [
-      "Quietly assembling a continuation vehicle for two 2019-vintage assets",
-      "Anchor commitment agreed, unannounced, for a distressed shipping book"
-    ] },
-
-  { id: "tm", first: "Theodora", last: "Mbeki", initials: "TM",
-    role: "Chief Investment Officer", firm: "Aldwych Sovereign", city: "Singapore",
-    sector: "Asset Management", sub: "Sovereign Wealth",
-    founder: false, founding: true, verified: "2 Mar 2026",
-    ask: "Two credible GPs in energy transition infrastructure who are not already on every consultant's list.",
-    askType: "deal", askAge: 6, askOptIns: 2, askOpen: true,
-    gives: [
-      { text: "Sovereign LP introductions", type: "capital", confidence: 6 },
-      { text: "Co-investment capacity at $50m and above", type: "capital", confidence: 7 }
-    ],
-    achievements: [
-      "Allocates $18bn across private markets for a sovereign mandate",
-      "Built the fund's first co-investment programme, now 40% of deployment",
-      "Sits on three GP advisory boards"
-    ] },
-
-  { id: "ph", first: "Peter", last: "Halloran", initials: "PH",
-    role: "Head of European M&A", firm: "Sterling Whitcombe", city: "London",
-    sector: "Investment Banking", sub: "M&A / Advisory",
-    founder: false, founding: true, verified: "2 Mar 2026",
-    ask: "An introduction to the family behind a mid-Rhine chemicals group. Not a mandate hunt. A relationship I have been building for six years.",
-    askType: "door", askAge: 21, askOptIns: 0, askOpen: true,
-    gives: [
-      { text: "Sponsor coverage across 40 European funds", type: "door", confidence: 7 },
-      { text: "Defence-side advisory relationships", type: "judgment", confidence: 6 }
-    ],
-    achievements: [
-      "Advised on $60bn of announced transactions in the last three years",
-      "Runs a 40-banker franchise across five countries",
-      "Sole adviser on two hostile defences in 2025"
-    ],
-    /* Shown only to people this member holds close (5+). The point is
-       anti-solicitation: live, unannounced work is exactly what a seller
-       cold-pitches against, so it never reaches anyone the member has not
-       personally rated close. See closedCard() in profile.js. */
-    closed: [
-      "Sole adviser on an unannounced take-private in European industrials",
-      "Retained pre-announcement by a Gulf sovereign fund on a defence carve-out"
-    ] },
-
-  { id: "nb", first: "Nadia", last: "Broussard", initials: "NB",
-    role: "Managing Director", firm: "Corbel Infrastructure", city: "Paris",
-    sector: "Real Assets", sub: "Energy Transition & Renewables",
-    founder: false, founding: true, verified: "9 Mar 2026",
-    ask: "A commercial director who has actually built and sold merchant storage in the Nordics.",
-    askType: "talent", askAge: 3, askOptIns: 4, askOpen: true,
-    gives: [
-      { text: "Grid and permitting contacts across France and Iberia", type: "door", confidence: 7 },
-      { text: "Project finance structuring", type: "judgment", confidence: 6 }
-    ],
-    achievements: [
-      "Closed €6.5bn of transition infrastructure since 2019",
-      "Former head of project finance at a G-SIB",
-      "Advises the French government on grid-scale storage policy"
-    ] },
-
-  { id: "sk", first: "Soren", last: "Kalb", initials: "SK",
-    role: "Co-Founder & Chief Executive", firm: "Vantablack Systems", city: "San Francisco",
-    sector: "Technology", sub: "Artificial Intelligence",
-    founder: false, founding: true, verified: "9 Mar 2026",
-    ask: "Capital with patience. A single strategic cheque of $80–120m from someone who will not need liquidity before 2032.",
-    askType: "capital", askAge: 8, askOptIns: 5, askOpen: true,
-    gives: [
-      { text: "Hyperscaler relationships at CTO level", type: "door", confidence: 6 },
-      { text: "Technical diligence on inference workloads", type: "judgment", confidence: 7 }
-    ],
-    /* Soren also holds close-only material, but the demo member's tie to him
-       is a 3, so it never renders. The pair with Peter (a 6) demonstrates both
-       sides of the gate with the mock data as it stands. */
-    closed: [
-      "In quiet talks to acquire a European inference-chip team",
-      "Series D being assembled at better than double the last round"
-    ],
-    achievements: [
-      "Second company; the first sold to a US hyperscaler in 2021",
-      "$310m raised across four rounds; profitable since Q2 2025",
-      "Fourteen granted patents in inference optimisation"
-    ] },
-
-  { id: "ao", first: "Adaeze", last: "Okonkwo", initials: "AO",
-    role: "Senior Partner", firm: "Wren & Partners", city: "London",
-    sector: "Law", sub: "Private Funds",
-    founder: false, founding: true, verified: "16 Mar 2026",
-    ask: "A conversation with an LP who has walked away from a fund at final close. I want to understand what actually breaks the trust.",
-    askType: "judgment", askAge: 14, askOptIns: 2, askOpen: true,
-    gives: [
-      { text: "Fund formation counsel", type: "judgment", confidence: 7 },
-      { text: "LPA negotiation across 60-plus funds", type: "judgment", confidence: 7 }
-    ],
-    achievements: [
-      "Structured 60+ first-time funds, aggregate $22bn",
-      "Head of the firm's global funds practice",
-      "Sits on the LPA drafting committee of an industry body"
-    ] },
-
-  { id: "lv", first: "Lucia", last: "Ventura", initials: "LV",
-    role: "Group Chief Financial Officer", firm: "Ferrante Holdings", city: "Milan",
-    sector: "Corporate Leadership", sub: "Chief Financial Officer",
-    founder: false, founding: true, verified: "16 Mar 2026",
-    ask: "An operating partner who can run a 14-month carve-out without needing a consultancy behind them.",
-    askType: "talent", askAge: 9, askOptIns: 1, askOpen: true,
-    gives: [
-      { text: "Family-controlled industrial boards in Italy", type: "door", confidence: 6 },
-      { text: "Carve-out and separation experience", type: "judgment", confidence: 7 }
-    ],
-    achievements: [
-      "CFO of a €4bn family-controlled industrial group",
-      "Executed the group's first public bond, 2023",
-      "Two decades at a Big Four transaction practice"
-    ] },
-
-  { id: "rh", first: "Rohan", last: "Hirani", initials: "RH",
-    role: "Principal", firm: "Ashgrove Family Office", city: "Dubai",
-    sector: "Family Office", sub: "Single Family Office",
-    founder: false, founding: true, verified: "23 Mar 2026",
-    ask: "Co-investors for control deals in GCC healthcare. Cheque size $40–80m, no fund structures.",
-    askType: "capital", askAge: 5, askOptIns: 3, askOpen: true,
-    gives: [
-      { text: "Direct balance-sheet capital, $40–80m", type: "capital", confidence: 7 },
-      { text: "GCC healthcare operators", type: "door", confidence: 6 }
-    ],
-    achievements: [
-      "Directs the direct-investment arm of a third-generation family balance sheet",
-      "Nine control positions across logistics and healthcare services",
-      "Chairs the family's investment committee"
-    ] },
-
-  { id: "gw", first: "Gideon", last: "Whitlock", initials: "GW",
-    role: "Director General", firm: "Office for Market Integrity", city: "London",
-    sector: "Public Sector & Policy", sub: "Regulators & Central Banks",
-    founder: false, founding: true, verified: "23 Mar 2026",
-    ask: "Nothing. I am here to listen, and to correct things that are wrong before they become policy.",
-    askType: "judgment", askAge: 30, askOptIns: 0, askOpen: false,
-    gives: [
-      { text: "Regulatory perspective before it becomes policy", type: "judgment", confidence: 7 }
-    ],
-    achievements: [
-      "Leads a supervisory directorate covering wholesale markets",
-      "Fifteen years in markets, then eight in public service",
-      "Chairs an international coordination working group"
-    ] }
+  { id: "st", first: "Samuel", last: "Thompson", initials: "ST",
+    role: "Co-Founder", firm: "Blackbook", city: "London",
+    sector: "Technology", sub: "Founder / Chief Executive",
+    founder: true, founding: false, verified: "21 Aug 2026",
+    invitesTotal: 2, invitesLeft: 2, referredBy: "The founders",
+    ask: "", askType: "door", askAge: 0, askOptIns: 0, askOpen: false,
+    gives: [],
+    achievements: [] }
 ];
 
 DB.me = "wg";
@@ -215,32 +50,19 @@ DB.me = "wg";
 /* Declared strength, 1–7. Held privately: never shown to the person rated. */
 
 DB.ties = [
-  { id: "jr", strength: 7, since: "2019" },
-  { id: "ph", strength: 6, since: "2016" },
-  { id: "tm", strength: 5, since: "2021" },
-  { id: "ao", strength: 5, since: "2018" },
-  { id: "nb", strength: 4, since: "2022" },
-  { id: "sk", strength: 3, since: "2024" },
-  { id: "lv", strength: 2, since: "2025" }
+  /* The co-founders arrive connected. Nobody starts at zero. */
+  { id: "st", strength: 7, since: "2026" }
 ];
 
 /* Ties between other members, which is what makes a second degree exist.
    Deliberately holds no strength: how close THEY say they are is their own
    record, and you are never shown it. All you get is that a route exists. */
-DB.memberTies = [
-  { a: "tm", b: "rh" },
-  { a: "jr", b: "rh" },
-  { a: "ph", b: "gw" },
-  { a: "ao", b: "gw" }
-];
+DB.memberTies = [];
 
 /* Members who have blocked visibility to this member's firm. Held as seats
    only — the searcher must never be able to work out who they are, so no
    name, no id, nothing joinable back to a member record. */
-DB.blocked = [
-  { role: "Managing Director", sector: "Private Equity", city: "London" },
-  { role: "Partner", sector: "Law", city: "London" }
-];
+DB.blocked = [];
 
 /* There is deliberately no store of non-members here.
 
@@ -255,7 +77,7 @@ DB.blocked = [
 
 /* Firms this member has blocked. Absolute and silent: never disclosed to the
    blocked party, and never to a searcher. */
-DB.blocks = ["Ferrante Holdings"];
+DB.blocks = [];
 
 /* The close circle: MUTUAL, unlike the vouch scale, which stays one-sided and
    private forever.
@@ -267,12 +89,10 @@ DB.blocks = ["Ferrante Holdings"];
    invitation, the other accepts or silently declines. Only the invitation
    travels, never the number, so the only signal another member can ever
    receive is a compliment. */
-DB.circle = ["ph"];
+DB.circle = ["st"];
 
 /* Invitations to a circle, pending this member's answer. */
-DB.circleInvites = [
-  { from: "jr", when: "14 Aug" }
-];
+DB.circleInvites = [];
 
 /* Circle invitations this member has sent. Held so the UI can say "invited"
    instead of offering the button twice. Never shown to the other side as
@@ -284,9 +104,7 @@ DB.circleOut = [];
    the other confirms, and only then does a tie exist. Mutual by construction,
    silent on decline, and it carries no strength: each side sets their own
    vouch privately afterwards, exactly as with any other connection. */
-DB.connectRequests = [
-  { from: "rh", when: "15 Aug" }
-];
+DB.connectRequests = [];
 DB.connectOut = [];
 
 /* Asks this member has passed one hop into their own network. */
@@ -331,16 +149,7 @@ DB.reportReasons = {
 
 /* ------------------------------------------------------- introductions --- */
 
-DB.intros = [
-  { id: "i1", with: "ph", direction: "requested", state: "released",
-    when: "28 July", note: "Both sides accepted. Contact details exchanged. We are out of the way from here." },
-  { id: "i2", with: "tm", direction: "offered", state: "checking",
-    when: "1 Aug", note: "She has not seen your name. We are asking whether she is open to it." },
-  { id: "i3", with: "sk", direction: "incoming", state: "awaiting",
-    when: "2 Aug", note: "Wants an introduction to a chair for a €400m industrial platform." },
-  { id: "i4", with: "lv", direction: "requested", state: "declined",
-    when: "18 July", note: "Neither side was told anything further, and no reason is given either way." }
-];
+DB.intros = [];
 
 /* Threads are between the member and US, about a specific introduction.
    There is no member-to-member messaging in Blackbook: once an introduction is
@@ -348,26 +157,7 @@ DB.intros = [
    discussing a live deal in an unapproved app creates an off-channel
    communications problem for their employer, and their compliance team would
    block us for it. */
-DB.threads = [
-  { about: "ph", subject: "Introduction to Peter Halloran", state: "released",
-    when: "28 July", unread: false,
-    messages: [
-      { from: "us",  text: "Peter has accepted. His details are below, and he has yours. We are out of the way from here." },
-      { from: "me",  text: "Thank you. I will call him this week." },
-      { from: "us",  text: "Good luck. We will check in once, in a fortnight, and not before." }
-    ] },
-  { about: "ao", subject: "Introduction to Adaeze Okonkwo", state: "checking",
-    when: "30 July", unread: true,
-    messages: [
-      { from: "us",  text: "We have put your request to her without your name. She has asked what the LPA question is specifically. Can you give us a line we can pass on?" }
-    ] },
-  { about: "tm", subject: "Introduction to Theodora Mbeki", state: "declined",
-    when: "26 July", unread: false,
-    messages: [
-      { from: "me", text: "Two names worth her time. Both raising, neither on the consultant lists." },
-      { from: "us", text: "This one did not proceed. Nothing further was shared, and no reason is given either way." }
-    ] }
-];
+DB.threads = [];
 
 /* ------------------------------------------------------------- lexicon --- */
 
