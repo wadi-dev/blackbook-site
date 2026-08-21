@@ -343,6 +343,9 @@
       return;
     }
 
+    const qrBtn = e.target.closest("[data-qr]");
+    if (qrBtn) { BB.state.showQr = !BB.state.showQr; render(); return; }
+
     /* ---- Your data -------------------------------------------------------- */
     const data = e.target.closest("[data-data]");
     if (data) {
