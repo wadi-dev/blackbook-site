@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en-GB" data-theme="auto" data-density="comfortable">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Blackbook</title>
+<meta name="description" content="A private, referral-only network.">
+<link rel="stylesheet" href="assets/app.css?v=1786882417">
+</head>
+<body>
+
+<header class="topbar" id="topbar"></header>
+<main id="screen" aria-live="polite"></main>
+
+<!-- Mobile only. Hidden above 860px, where the top nav takes over. -->
+<nav class="tabbar" id="tabbar" aria-label="Main"></nav>
+<div class="sheet-wrap" id="sheet" hidden>
+  <div class="scrim" data-sheet="close"></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="More">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="sheet-list"></div>
+  </div>
+</div>
+
+<!-- Data and shell -->
+<script src="assets/data.js?v=1786882417"></script>
+<script src="assets/core.js?v=1786882417"></script>
+
+<!-- Screens register themselves on BB.screens -->
+<script src="assets/screens/home.js?v=1786882417"></script>
+<script src="assets/screens/network.js?v=1786882417"></script>
+<script src="assets/screens/asks.js?v=1786882417"></script>
+<script src="assets/screens/gives.js?v=1786882417"></script>
+<script src="assets/screens/members.js?v=1786882417"></script>
+<script src="assets/screens/introductions.js?v=1786882417"></script>
+<script src="assets/screens/profile.js?v=1786882417"></script>
+
+<!-- Boot last, once every screen exists -->
+<script src="assets/boot.js?v=1786882417"></script>
+
+</body>
+</html>

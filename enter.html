@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en-GB" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Blackbook — Your invitation</title>
+<link rel="stylesheet" href="assets/app.css?v=1786882417">
+<link rel="stylesheet" href="assets/landing.css?v=1786882417">
+</head>
+<body class="lp">
+
+<header class="lp-bar">
+  <a class="wordmark" href="landing.html">Blackbook</a>
+  <a class="btn sm" href="landing.html">Back</a>
+</header>
+
+<main class="lp-doc lp-enter">
+  <h1>Your invitation</h1>
+  <p class="lead">
+    A member spent one of their two invitations on you. Their name stays
+    attached to yours for as long as you are here.
+  </p>
+
+  <form id="code-form" novalidate>
+    <label class="fld">
+      <span class="lbl">Invitation code</span>
+      <input id="code" type="text" inputmode="text" autocomplete="off"
+        spellcheck="false" placeholder="XXXX-XXXX" maxlength="9"
+        aria-describedby="code-help">
+    </label>
+    <p id="code-help" class="small muted" style="margin-top:8px">
+      Eight characters, from the message you were sent. Not case sensitive.
+    </p>
+    <div class="row" style="margin-top:20px">
+      <button class="btn primary" type="submit">Continue</button>
+    </div>
+    <p id="code-msg" class="small" role="status" aria-live="polite"
+       style="margin-top:14px;min-height:1.4em"></p>
+  </form>
+
+  <hr class="lp-rule">
+
+  <p class="small muted" style="line-height:1.65">
+    No invitation? There is nothing here for you to do, and we would rather say
+    so than keep a waiting list nobody reads. Membership is by referral and
+    there is no way to apply.
+  </p>
+</main>
+
+<footer class="lp-foot">
+  <div>
+    <span class="wordmark">Blackbook</span>
+    <p class="small muted">Operated by [COMPANY NAME], registered in England and Wales.</p>
+  </div>
+  <nav class="small">
+    <a href="privacy.html">Privacy</a>
+    <a href="terms.html">Terms of membership</a>
+    <a href="landing.html">Home</a>
+  </nav>
+</footer>
+
+<script>
+/* Format as the member types, so the field teaches its own shape rather than
+   rejecting them afterwards.
+
+   The gate checks real codes now. The page holds only SHA-256 hashes, so
+   reading this source, or the repository it lives in, yields no code: the
+   codes themselves exist in exactly one private file, and each one is handed
+   to a named person. Minting or retiring a code is editing this list.
+
+   This is a gate, not an account system. A valid code opens the app; it does
+   not yet create anything or know who you are. That honesty used to be a
+   banner on the page; now it lives here, where the person it concerns most,
+   the next developer, will find it. */
+(function () {
+  const HASHES = new Set([
+    "24ee211b3e0929c43cea038526d0699e3d8ab8441305733ef3b28a68acc9f5bd",
+    "3b27446c25855f4f73f2862ec3ad4b93e5d63cd3cc243dd4b4cc411a22e8e131",
+    "0be2f89d96b37ca47ed0bc5ad5fcdd17cab3cab36c8dbf81751201864bd23b2b",
+    "38b4bab8fc3474128727e6d2282bdf769b83c661dd38fc1ab24bc59eb1916e78",
+    "8d173bd87c7ccf8b9c3eaa360e4b7209a20000f49fb06e0ab02d9305fc540030",
+    "975573fa0e9108d00badc139d15b4f709c79f44c83ebf0f91b60a5b809a102f8",
+    "26f9fbae989f7945947edef11bc2940d5715f23086c622d9cd522cb06e84f7a8",
+    "0ae564b22910913822b7a11f7417c61071350bedb14a1cbb4ddf64ef13d565c7",
+    "8c9039dbb9d604613836cf220f25bd3d259b23fc00c45ed4f56c95e927c904fc",
+    "321c84a291ebca01b9dc2711bebc2230afd73660363636ed81b127bb32500d16",
+    "12bf8668234a2ab0e455ae30c41faa46ce708705898c61c1d6739c36479e8c9e",
+    "6352df7b3cf97b842e6a915b364b20030b7bdad67813660ea122529ecc42a95d"
+  ]);
+
+  const field = document.getElementById("code");
+  const form  = document.getElementById("code-form");
+  const msg   = document.getElementById("code-msg");
+
+  const sha256 = async s => {
+    const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+    return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, "0")).join("");
+  };
+
+  field.addEventListener("input", () => {
+    const caretAtEnd = field.selectionStart === field.value.length;
+    const raw = field.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+    field.value = raw.length > 4 ? raw.slice(0, 4) + "-" + raw.slice(4) : raw;
+    if (caretAtEnd) field.setSelectionRange(field.value.length, field.value.length);
+    msg.textContent = "";
+    field.removeAttribute("aria-invalid");
+  });
+
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const raw = field.value.replace(/-/g, "");
+    if (raw.length < 8) {
+      field.setAttribute("aria-invalid", "true");
+      msg.textContent = "That code is not complete. It is eight characters.";
+      field.focus();
+      return;
+    }
+    /* crypto.subtle only exists on https and localhost. Opening this page
+       straight from the filesystem is the one way to end up without it. */
+    if (!crypto.subtle) {
+      msg.textContent = "This page has to be served, not opened as a file.";
+      return;
+    }
+    if (HASHES.has(await sha256(raw))) {
+      msg.textContent = "Accepted. Opening Blackbook.";
+      setTimeout(() => { location.href = "app.html"; }, 450);
+    } else {
+      field.setAttribute("aria-invalid", "true");
+      msg.textContent = "That code is not recognised. Codes are personal, so "
+        + "check with the person who sent yours.";
+      field.focus();
+    }
+  });
+
+  field.focus();
+})();
+</script>
+
+</body>
+</html>

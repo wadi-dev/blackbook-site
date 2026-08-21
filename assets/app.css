@@ -1,0 +1,856 @@
+/* ==========================================================================
+   BLACKBOOK — design system
+
+   Californian Minimalist. Strictly monochrome: white ground, black type,
+   black borders. There is no accent hue — the accent IS ink.
+
+   The discipline, and why:
+   - State (selected, active, pressed) is expressed by INVERSION: black fill,
+     white type. One visual language, so it cannot drift as screens are added.
+   - Large type tightens, small type opens. Negative tracking on display sizes,
+     generous positive tracking on small uppercase labels. That relationship
+     does most of the work in reading as considered rather than cheap.
+   - Rounded squares for anything representing a person. Never circles.
+   - Hairlines divide, not boxes. No shadows on resting surfaces.
+   - Strength is encoded by WEIGHT OF BLACK, never by hue.
+
+   Tokens only in :root. No raw hex in components.
+   ========================================================================== */
+
+:root {
+  /* --- Core. Change these five and the whole system follows. ------------ */
+  --bg: #FFFFFF;
+  --surface: #FFFFFF;
+  --text: #000000;
+  /* 0.56, not 0.46. At 0.46 this composites to #8A8A8A on white, which is
+     3.47:1 against the page and fails WCAG AA for normal text. Six of the nine
+     text styles on the public page were failing, including the lead paragraph
+     under the headline. 0.56 gives 4.94:1 and still reads clearly as secondary.
+     Dark mode was already fine at 5.69:1 and is unchanged. */
+  --muted: rgba(0, 0, 0, 0.56);
+  --accent: #000000;
+
+  /* --- Derived ---------------------------------------------------------- */
+  --accent-soft: rgba(0, 0, 0, 0.30);
+  --line: rgba(0, 0, 0, 0.12);
+  --line-strong: rgba(0, 0, 0, 0.24);
+  --danger: #000000;
+  --wash: rgba(0, 0, 0, 0.035);
+  --recess: rgba(0, 0, 0, 0.045);
+  --recess-2: rgba(0, 0, 0, 0.09);
+  --shadow: none;
+  --lift: 0 8px 28px rgba(0, 0, 0, 0.10);
+
+  /* --- Type. -------------------------------------------------------------
+     TO SWAP IN A LICENSED TYPEFACE: change these two lines and nothing else.
+     Everything below reads the tokens. Suggested pairing when there is budget:
+     a neo-grotesque for display (Söhne, Founders Grotesk, Neue Haas Grotesk)
+     with the system stack retained for body, or the same face throughout. */
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+                  "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+               "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  /* --- Shape ------------------------------------------------------------ */
+  --r: 14px;            /* cards, panels */
+  --r-tile: 12px;       /* small person tiles */
+  --r-tile-lg: 20px;    /* large person tiles */
+  --r-pill: 999px;
+
+  /* --- Rhythm ----------------------------------------------------------- */
+  --pad: 22px;
+  --gap: 22px;
+  --shell: 1180px;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  color-scheme: light;
+
+  /* --- Dark values, declared once and inert until mapped. ----------------
+     Keeping the VALUES in one place means dark and auto cannot drift apart,
+     which is the usual way a second theme rots. */
+  --dk-bg: #0A0A0A;
+  --dk-surface: #121212;
+  --dk-text: #FFFFFF;
+  --dk-muted: rgba(255, 255, 255, 0.52);
+  --dk-accent: #FFFFFF;
+  --dk-accent-soft: rgba(255, 255, 255, 0.34);
+  --dk-line: rgba(255, 255, 255, 0.16);
+  --dk-line-strong: rgba(255, 255, 255, 0.30);
+  --dk-wash: rgba(255, 255, 255, 0.05);
+  --dk-recess: rgba(255, 255, 255, 0.07);
+  --dk-recess-2: rgba(255, 255, 255, 0.13);
+  --dk-lift: 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+
+/* ------------------------------------------------------------- theming ----
+   Three modes on <html data-theme>: light · dark · auto.
+   Auto follows the operating system, which is the thing that actually knows
+   about sunrise and ambient light. No JS — the media query is live, so it
+   flips the moment the device does. Unset behaves as auto.
+   -------------------------------------------------------------------------- */
+
+[data-theme="dark"] {
+  --bg: var(--dk-bg); --surface: var(--dk-surface); --text: var(--dk-text);
+  --muted: var(--dk-muted); --accent: var(--dk-accent);
+  --accent-soft: var(--dk-accent-soft);
+  --line: var(--dk-line); --line-strong: var(--dk-line-strong);
+  --danger: var(--dk-accent);
+  --wash: var(--dk-wash); --recess: var(--dk-recess); --recess-2: var(--dk-recess-2);
+  --shadow: none; --lift: var(--dk-lift);
+  color-scheme: dark;
+}
+[data-theme="auto"], :root:not([data-theme]) { color-scheme: light dark; }
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --bg: var(--dk-bg); --surface: var(--dk-surface); --text: var(--dk-text);
+    --muted: var(--dk-muted); --accent: var(--dk-accent);
+    --accent-soft: var(--dk-accent-soft);
+    --line: var(--dk-line); --line-strong: var(--dk-line-strong);
+    --danger: var(--dk-accent);
+    --wash: var(--dk-wash); --recess: var(--dk-recess); --recess-2: var(--dk-recess-2);
+    --shadow: none; --lift: var(--dk-lift);
+    color-scheme: dark;
+  }
+}
+[data-density="compact"] { --pad: 15px; --gap: 15px; }
+
+/* ---------------------------------------------------------------- reset -- */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { background: none; border: 0; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+svg { display: block; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+::selection { background: var(--accent); color: var(--surface); }
+
+/* ----------------------------------------------------------------- type -- */
+
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
+h1 { font-size: 30px; font-weight: 650; letter-spacing: -0.03em; line-height: 1.08; }
+h2 { font-size: 19px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.2; }
+h3 { font-size: 15.5px; font-weight: 650; letter-spacing: -0.012em; }
+
+.display {
+  font-family: var(--font-display);
+  font-size: 38px; font-weight: 650;
+  letter-spacing: -0.035em; line-height: 1.02;
+}
+@media (max-width: 720px) { .display { font-size: 29px; } }
+
+.eyebrow {
+  font-size: 10.5px; font-weight: 500;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--muted);
+}
+/* Anything a member typed can contain a string with no break in it: a pasted
+   URL, a long compound word, a mistyped run of characters. Without this the
+   longest word sets the minimum width of its container and pushes the whole
+   page sideways. Measured at 897px of horizontal overflow on Home before this
+   rule existed.
+
+   `anywhere` rather than `break-word` on purpose: only `anywhere` also affects
+   min-content sizing, which is what a flex or grid child needs to stop being
+   forced wider than its column.
+
+   Set once on the page shell rather than on a list of elements or a list of
+   containers. overflow-wrap inherits, so this reaches everything without
+   anybody having to remember. Two earlier attempts enumerated first elements
+   and then containers, and each missed somewhere: a bare span in achievements,
+   then the role line in the page head. */
+.shell, .detail, .lp-doc, .lp-list {
+  overflow-wrap: anywhere;
+}
+/* The rows that truncate keep truncating: white-space: nowrap wins over
+   wrapping, so .who and .sub are unaffected. */
+
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.tabular { font-variant-numeric: tabular-nums; }
+strong, b { font-weight: 650; }
+
+/* -------------------------------------------------------------- topbar --- */
+
+.topbar {
+  position: sticky; top: 0; z-index: 60;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.topbar-inner {
+  max-width: var(--shell); margin: 0 auto;
+  display: flex; align-items: center; gap: 28px;
+  padding: 14px 24px;
+}
+.wordmark {
+  font-family: var(--font-display);
+  font-size: 13px; font-weight: 650;
+  letter-spacing: 0.3em; text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.nav { display: flex; gap: 1px; margin: 0 auto; }
+.nav button {
+  position: relative;
+  padding: 8px 13px; border-radius: 8px;
+  font-size: 13.5px; font-weight: 600;
+  color: var(--muted);
+  transition: color .14s var(--ease), background .14s var(--ease);
+}
+.nav button:hover { color: var(--text); background: var(--wash); }
+.nav button[aria-current="true"] { color: var(--text); }
+.nav button[aria-current="true"]::after {
+  content: ""; position: absolute; left: 13px; right: 13px; bottom: -15px;
+  height: 2px; background: var(--accent);
+}
+.nav .count {
+  display: inline-block; margin-left: 6px; padding: 0 5px;
+  min-width: 16px; border-radius: var(--r-pill);
+  background: var(--accent); color: var(--surface);
+  font-size: 10.5px; font-weight: 650; line-height: 16px; text-align: center;
+}
+
+.icon-btn {
+  width: 34px; height: 34px; border-radius: var(--r-tile);
+  display: grid; place-items: center; flex-shrink: 0;
+  border: 1px solid var(--line); color: var(--muted);
+  transition: color .14s var(--ease), border-color .14s var(--ease);
+}
+.icon-btn:hover { color: var(--text); border-color: var(--accent); }
+.icon-btn svg { width: 17px; height: 17px; }
+
+/* Search is reached from here rather than from a tab, so it needs its own
+   current state — otherwise the search screen is the one place in the app
+   where nothing at all is lit and the navigation says nothing about where
+   you are. */
+.icon-btn[aria-current="true"] {
+  color: var(--surface); background: var(--accent); border-color: var(--accent);
+}
+
+/* --------------------------------------------------------------- forms --- */
+
+.fld { display: block; margin-top: 14px; }
+.fld .lbl {
+  display: block; margin-bottom: 6px;
+  font-size: 11px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted);
+}
+.fld textarea, .fld select, input[type="text"] {
+  width: 100%; font: inherit; font-size: 14px; color: var(--text);
+  background: var(--recess);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 11px 13px; resize: vertical;
+  transition: border-color .14s var(--ease);
+}
+.fld textarea:focus, .fld select:focus, input[type="text"]:focus {
+  outline: none; border-color: var(--accent);
+}
+.fld select { appearance: none; cursor: pointer; }
+
+/* The Article 15 export, shown in full rather than summarised. */
+.dump {
+  margin-top: 14px; padding: 14px; max-height: 340px; overflow: auto;
+  background: var(--recess); border: 1px solid var(--line); border-radius: 10px;
+  font-family: var(--font-mono); font-size: 11.5px; line-height: 1.55;
+  white-space: pre; color: var(--muted);
+}
+
+/* -------------------------------------------------------------- graph --- */
+
+#graph {
+  width: 100%; display: block;
+  touch-action: none;          /* the drag is ours, not the browser's scroll */
+  cursor: default;             /* the canvas does not move; only the nodes do */
+  user-select: none;
+}
+#graph.dragging { cursor: grabbing; }
+.gnode { cursor: grab; }
+#graph.dragging .gnode { cursor: grabbing; }
+
+/* A drag that leaves the SVG would otherwise select the caption, the headings
+   and the tie list. Selected text here is a solid black block. */
+body.dragging, body.dragging * { user-select: none !important; }
+
+/* The rect scales, not the group: the group's transform is the node's position
+   and a transition on it would make the drag lag the cursor. */
+.gnode rect {
+  transform-box: fill-box; transform-origin: center;
+  transition: transform .22s var(--ease), stroke .22s var(--ease);
+}
+.gnode:hover rect { stroke: var(--accent); }
+.gnode.grabbed rect { transform: scale(1.14); stroke: var(--accent); }
+
+/* You are the fixed point, and nothing moves you. The hub opens Home on a tap
+   and is not draggable, so it must not offer the grab cursor or the lift. */
+.gme { cursor: pointer; }
+.gme rect { transition: none; }
+.gme:hover rect { stroke: none; }
+
+#graph line { transition: opacity .22s var(--ease); }
+#graph.dragging line { opacity: .55; }
+
+/* Knocked out of whatever sits behind it.
+
+   Labels are drawn after the edges, so any edge passing under one cut straight
+   through the letterforms: on a strong tie the stroke is over 4 units wide, and
+   it took out the bar of an H and the whole of a full stop. paint-order lays a
+   fat surface-coloured stroke down first and the fill on top, which clears a
+   halo the exact shape of the text.
+
+   The halo must use the surface token rather than white, or it paints a bright
+   smear across the graph in dark mode.
+
+   Full ink rather than muted, because these are names now, and the name is how
+   you find someone on this screen. */
+.gnode .glabel {
+  fill: var(--text);
+  paint-order: stroke fill;
+  stroke: var(--surface);
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+}
+
+/* The veiled ones stay quiet. They carry a seat, never a name, and should not
+   compete with the people you actually know. */
+.gnode.gfar .glabel { fill: var(--muted); stroke-width: 3px; }
+
+/* Second degree. Dashed and smaller, so the eye reads it as provisional
+   without needing a legend. It never carries a name. */
+.gfar rect { transition: stroke .22s var(--ease); }
+.gfar:hover rect { stroke: var(--accent); }
+.gedge-far { pointer-events: none; }
+
+/* Caption and Reset sit on one row. The caption may run to two lines inside its
+   own column, but the button stays beside it rather than dropping under. */
+.graph-foot {
+  display: flex; align-items: center; gap: 16px; justify-content: space-between;
+  padding: 12px 18px 14px; border-top: 1px solid var(--line);
+}
+.graph-foot p { flex: 1 1 auto; min-width: 0; }
+.graph-foot .btn { flex: 0 0 auto; }
+
+/* Below this the row genuinely has no room, so let it stack. */
+@media (max-width: 560px) { .graph-foot { flex-wrap: wrap; } }
+
+/* ------------------------------------------------------- bottom tabs --- */
+
+/* Mobile navigation. Below 860px the top nav is replaced entirely by this,
+   rather than being made to scroll — a nav you have to scroll to find your own
+   location in is not navigation.
+
+   State is inversion, as everywhere else: the active tab goes to full ink and
+   its icon stroke thickens. No pill, no fill, no second hue. */
+
+.tabbar { display: none; }
+
+@media (max-width: 860px) {
+  .nav { display: none; }
+  .topbar .icon-btn[data-go="settings"] { display: none; } /* lives in More */
+  .topbar-inner { gap: 14px; padding: 13px 18px; }
+  .wordmark { margin-right: auto; }
+
+  .tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 70;
+    display: flex; align-items: stretch;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tabbar button {
+    flex: 1 1 0; min-width: 0; position: relative;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 9px 2px 9px;
+    color: var(--muted);
+    transition: color .14s var(--ease);
+  }
+  .tabbar button svg { width: 21px; height: 21px; }
+  .tabbar .lab {
+    font-size: 10px; font-weight: 600; letter-spacing: .03em;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tabbar button[aria-current="true"] { color: var(--text); }
+  .tabbar button[aria-current="true"] svg { stroke-width: 1.95; }
+
+  .tabbar .count {
+    position: absolute; top: 4px; left: 50%; margin-left: 4px;
+    min-width: 16px; padding: 0 4px;
+    border-radius: var(--r-pill);
+    background: var(--accent); color: var(--surface);
+    font-size: 9.5px; font-weight: 650; line-height: 16px; text-align: center;
+    border: 2px solid var(--surface);
+  }
+
+  /* The bar sits over the page, so the page has to end above it. */
+  .shell { padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
+}
+
+/* --------------------------------------------------------- more sheet --- */
+
+.sheet-wrap { position: fixed; inset: 0; z-index: 80; }
+.sheet-wrap[hidden] { display: none; }
+.sheet-wrap .scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, .38); }
+.sheet {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-radius: 20px 20px 0 0;
+  padding: 6px 18px calc(14px + env(safe-area-inset-bottom));
+  animation: sheet-up .3s var(--ease);
+}
+.sheet .grab {
+  width: 34px; height: 4px; border-radius: 2px;
+  background: var(--line); margin: 8px auto 6px;
+}
+.sheet .item {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 14px 2px; text-align: left;
+  font-size: 15px; font-weight: 600; color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+.sheet .item:last-child { border-bottom: 0; }
+.sheet .item[aria-current="true"] { color: var(--text); }
+.sheet .item .count {
+  min-width: 18px; padding: 0 5px; border-radius: var(--r-pill);
+  background: var(--accent); color: var(--surface);
+  font-size: 10.5px; font-weight: 650; line-height: 18px; text-align: center;
+}
+@keyframes sheet-up { from { transform: translateY(100%); } }
+
+body.no-scroll { overflow: hidden; }
+
+/* -------------------------------------------------------------- layout --- */
+
+.shell { max-width: var(--shell); margin: 0 auto; padding: 30px 24px 80px; }
+
+.page-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap; margin-bottom: var(--gap);
+}
+.page-head .sub {
+  color: var(--muted); font-size: 14px; max-width: 58ch; margin-top: 6px;
+}
+
+.cols { display: grid; gap: var(--gap); align-items: start; }
+.cols > * { min-width: 0; }
+.cols.a { grid-template-columns: 340px minmax(0, 1fr); }
+.cols.b { grid-template-columns: minmax(0, 1fr) 330px; }
+@media (max-width: 1040px) { .cols.a, .cols.b { grid-template-columns: minmax(0, 1fr); } }
+
+.stack > * + * { margin-top: var(--gap); }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.spread { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.grow { flex: 1; min-width: 0; }
+.rule { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+
+/* --------------------------------------------------------------- cards --- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: var(--pad);
+}
+.card + .card { margin-top: 14px; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+
+.empty {
+  border: 1px dashed var(--line);
+  border-radius: var(--r);
+  padding: 30px 26px; text-align: center;
+  color: var(--muted); font-size: 14px; line-height: 1.6;
+}
+.empty b { color: var(--text); font-weight: 650; display: block; margin-bottom: 4px; }
+
+/* ------------------------------------------------------------- buttons --- */
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  border: 1px solid var(--line); border-radius: 9px;
+  padding: 9px 16px;
+  font-size: 13.5px; font-weight: 600;
+  background: var(--surface); color: var(--text);
+  transition: background .14s var(--ease), border-color .14s var(--ease), color .14s var(--ease);
+  white-space: nowrap;
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn.primary:hover { background: var(--surface); color: var(--accent); }
+.btn.quiet { border-color: transparent; color: var(--muted); }
+.btn.quiet:hover { color: var(--text); background: var(--wash); border-color: transparent; }
+.btn.danger { border-color: var(--danger); text-decoration: underline; text-underline-offset: 3px; }
+.btn.sm { padding: 6px 12px; font-size: 12.5px; }
+.btn.block { width: 100%; }
+.btn[disabled] { opacity: .38; pointer-events: none; }
+
+/* --------------------------------------------------------- pills, tags --- */
+
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--line); border-radius: var(--r-pill);
+  padding: 5px 12px; font-size: 12.5px; font-weight: 600;
+  white-space: nowrap;
+}
+.pill.solid { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.pill.plain { background: var(--recess); border-color: transparent; color: var(--muted); }
+
+/* A small opening menu, in the system's own language, because the one native
+   select this interface had opened an OS-styled dropdown that belonged to no
+   design system at all. Hairline border, surface fill, inversion for the
+   current choice: the same three moves as everything else. */
+.menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
+  background: var(--surface); border: 1px solid var(--line-strong);
+  border-radius: 14px; padding: 6px;
+  min-width: 244px; max-height: 330px; overflow-y: auto;
+}
+.menu button {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 16px; width: 100%; padding: 8px 12px; border-radius: 9px;
+  font-size: 13px; font-weight: 550; text-align: left; color: var(--text);
+}
+.menu button:hover:not(:disabled):not([aria-current="true"]) { background: var(--recess); }
+.menu button[aria-current="true"] { background: var(--accent); color: var(--surface); }
+.menu button[aria-current="true"] .n { color: var(--surface); }
+.menu button:disabled { color: var(--muted); opacity: .45; cursor: default; }
+.menu .n { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
+
+/* The drill. Pressing a sector slides the same menu into its sub-sectors;
+   the back row slides out again. A mount animation, not a pane transition,
+   because the menu is rebuilt on every state change: the new list simply
+   arrives from the direction of travel. Distance is small and the duration
+   short, so it reads as a shift rather than a journey. */
+@keyframes menu-fwd { from { opacity: 0; transform: translateX(16px); }
+                      to   { opacity: 1; transform: none; } }
+@keyframes menu-back { from { opacity: 0; transform: translateX(-16px); }
+                       to   { opacity: 1; transform: none; } }
+.menu.anim-fwd  { animation: menu-fwd  .2s var(--ease); }
+.menu.anim-back { animation: menu-back .2s var(--ease); }
+@media (prefers-reduced-motion: reduce) {
+  .menu.anim-fwd, .menu.anim-back { animation: none; }
+}
+.tag {
+  display: inline-block; border: 1px solid var(--line); border-radius: 6px;
+  padding: 3px 8px; font-size: 11.5px; color: var(--muted);
+}
+
+/* -------------------------------------------------------------- inputs --- */
+
+.field { display: block; margin-bottom: 16px; }
+.field > span {
+  display: block; margin-bottom: 7px;
+  font-size: 10.5px; font-weight: 500;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+}
+input[type=text], input[type=email], input[type=search], select, textarea {
+  width: 100%;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--line); border-radius: 9px;
+  padding: 10px 12px; font-size: 14.5px; outline: none;
+  transition: border-color .14s var(--ease);
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+input::placeholder, textarea::placeholder { color: rgba(0,0,0,.26); }
+[data-theme="dark"] input::placeholder, [data-theme="dark"] textarea::placeholder { color: rgba(255,255,255,.3); }
+textarea { min-height: 96px; resize: vertical; line-height: 1.55; }
+select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 15px) 18px, calc(100% - 10px) 18px;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  padding-right: 32px;
+}
+
+.search-field {
+  display: flex; align-items: center; gap: 14px;
+  border-bottom: 1px solid var(--accent); padding-bottom: 13px;
+}
+.search-field input {
+  border: 0; padding: 0; font-size: 25px; letter-spacing: -.025em;
+  font-family: var(--font-display); background: none;
+}
+.search-field input:focus { border: 0; }
+.search-field svg { width: 20px; height: 20px; color: var(--muted); flex-shrink: 0; }
+
+/* ---------------------------------------------------------- segmented --- */
+
+.segmented {
+  display: inline-flex; background: var(--recess);
+  border: 1px solid var(--line); border-radius: 9px; padding: 2px;
+}
+.segmented button {
+  border-radius: 7px; padding: 6px 13px;
+  font-size: 12.5px; font-weight: 600; color: var(--muted);
+  transition: background .14s var(--ease), color .14s var(--ease);
+}
+.segmented button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+
+/* --------------------------------------------------------- person tile --- */
+
+.tile {
+  border-radius: var(--r-tile);
+  background: var(--recess);
+  border: 1px solid var(--line);
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 650;
+  color: var(--text); flex-shrink: 0;
+  letter-spacing: .01em;
+}
+.tile.lg { border-radius: var(--r-tile-lg); }
+.tile.veiled { color: transparent; position: relative; overflow: hidden; }
+.tile.veiled::after {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(45deg,
+    var(--recess-2) 0 6px, transparent 6px 12px);
+}
+
+/* Founder mark — a solid pill after the name, state by inversion like
+   everything else in the system. Sized in ems so it scales with the display
+   type it sits beside, and lifted off the baseline so it reads as a mark on
+   the name rather than a word in it. */
+.fdr-pill {
+  display: inline-block; vertical-align: 0.35em; margin-left: 0.45em;
+  padding: 0.16em 0.6em;
+  background: var(--accent); color: var(--surface);
+  border-radius: var(--r-pill);
+  font-size: 0.28em; font-weight: 650;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  font-family: var(--font-body);
+}
+
+/* strength dots, 1–7 */
+.dots { display: inline-flex; gap: 3px; align-items: center; }
+.dots i {
+  width: 5px; height: 5px; border-radius: 50%;
+  border: 1px solid var(--accent); display: block;
+}
+.dots i.on { background: var(--accent); }
+
+/* ---------------------------------------------------------- person row --- */
+
+.prow {
+  display: flex; align-items: center; gap: 13px;
+  padding: 13px 0; width: 100%; text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.prow:last-child { border-bottom: 0; }
+
+/* The name and the line under it are separate rows, and each truncates rather
+   than wrapping. A wrapped firm name in a 320px column reads as a mistake, and
+   these rows sit in columns of very different widths across the app. */
+.prow .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.prow .who, .prow .sub {
+  display: block; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.prow .who { font-weight: 650; font-size: 14px; line-height: 1.25; }
+.prow .sub { font-size: 12.5px; color: var(--muted); line-height: 1.3; }
+.prow:hover .who { text-decoration: underline; text-underline-offset: 3px; }
+
+/* What the member can open, sitting at the end of the row. It is the reason to
+   approach them, so it never gets dropped on small screens — it moves under the
+   name instead, aligned to it rather than to the tile. */
+.prow .opens {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0; min-width: 0; margin-left: auto;
+}
+.prow .opens .what {
+  max-width: 30ch; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* The name column was taking all the slack while five of nine gives truncated,
+   and the give is the reason the row exists. So above 1040px it may claim more
+   width — but only by SHRINKING, never by forcing: a rigid .opens at this cap
+   pushed the page 186px wide and truncated every name on the screen. */
+@media (min-width: 861px) {
+  .prow .opens { flex-shrink: 1; }
+  .prow .opens .what { max-width: 56ch; }
+}
+@media (max-width: 720px) {
+  .prow.opener { flex-wrap: wrap; }
+  .prow.opener .opens {
+    width: 100%; margin-left: 0; padding-left: 59px; /* tile 46 + row gap 13 */
+    align-items: flex-start;
+  }
+  /* On its own line there is room to read it, so it wraps instead of
+     truncating. Truncating here would hide the one thing the row is for. */
+  .prow.opener .opens .what {
+    max-width: none; white-space: normal; overflow: visible; line-height: 1.4;
+  }
+
+  /* The 1–7 ramp needs ~330px, which leaves nothing for the name — it collapsed
+     to "P." / "S.". So it takes its own line and spreads across it, and you can
+     still see whose strength you are setting. */
+  .prow.editing { flex-wrap: wrap; row-gap: 10px; }
+  .prow.editing .ramp {
+    width: 100%; padding-left: 49px; /* tile 36 + row gap 13 */
+    justify-content: space-between;
+  }
+}
+
+/* ---------------------------------------------------------- stat rail --- */
+
+.stats {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.stats .s { padding: 17px 16px 17px 0; }
+.stats .s + .s { border-left: 1px solid var(--line); padding-left: 18px; }
+
+/* Wrapped to two by two, the dividers must wrap with it. The one-row rule
+   ("every cell after the first takes a left border") drew a stray hairline at
+   the leading edge of the second row and no line at all between the rows. In
+   the grid the lines are: one vertical between the columns, one horizontal
+   between the rows, nothing else. */
+@media (max-width: 720px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .stats .s:nth-child(odd) { border-left: 0; padding-left: 0; }
+  .stats .s:nth-child(n+3) { border-top: 1px solid var(--line); }
+}
+.stats b {
+  display: block; font-family: var(--font-display);
+  font-size: 26px; font-weight: 650; letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums; line-height: 1.05;
+}
+.stats span {
+  display: block; margin-top: 4px;
+  font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted);
+}
+
+/* ------------------------------------------------------------ ask box --- */
+
+.askbox { border: 1px solid var(--accent); border-radius: var(--r); padding: 20px; }
+.askbox p { font-size: 16px; line-height: 1.5; letter-spacing: -.008em; }
+
+/* ---------------------------------------------------------- meter bar --- */
+
+.meter { display: flex; align-items: center; gap: 11px; margin-bottom: 9px; font-size: 13px; }
+.meter .lbl { width: 104px; color: var(--muted); flex-shrink: 0; }
+.meter .bar {
+  flex: 1; height: 6px; border-radius: 3px;
+  background: var(--recess); border: 1px solid var(--line); overflow: hidden;
+}
+.meter .bar i { display: block; height: 100%; background: var(--accent); }
+.meter .val { width: 26px; text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------ carousel -- */
+
+.carousel {
+  display: flex; gap: 14px; overflow-x: auto;
+  scroll-snap-type: x mandatory; padding-bottom: 12px;
+  scrollbar-width: none;
+}
+.carousel::-webkit-scrollbar { display: none; }
+.carousel .c {
+  scroll-snap-align: start; width: 104px; flex: 0 0 auto; text-align: left;
+}
+.carousel .c .tile { width: 104px; height: 104px; font-size: 25px; margin-bottom: 9px; }
+.carousel .c:hover .tile { border-color: var(--accent); }
+.carousel .c .cn {
+  display: block; font-size: 11.5px; font-weight: 600; line-height: 1.3;
+}
+.carousel .c .cf {
+  display: block; font-size: 10.5px; color: var(--muted);
+  margin: 2px 0 5px; line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Names wrap here rather than truncate — a 104px tile is too narrow to
+   truncate a name without losing the surname entirely. The inline bracket
+   variant keeps the founder mark flowing correctly across two lines. */
+
+/* ------------------------------------------------------------- detail --- */
+/* The one signature motion: a member's tile flies into their profile.
+   Everything else in the system is instant. */
+
+.detail { position: fixed; inset: 0; z-index: 80; background: var(--bg); overflow-y: auto; }
+.detail-bar {
+  position: sticky; top: 0; z-index: 5;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.detail-bar .inner {
+  max-width: var(--shell); margin: 0 auto;
+  display: flex; align-items: center; gap: 16px; padding: 14px 24px;
+}
+.flip {
+  position: fixed; z-index: 200; pointer-events: none;
+  border: 1px solid var(--line); background: var(--recess);
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 650; color: var(--text);
+}
+.fade { opacity: 0; transform: translateY(12px); }
+.fade.in {
+  opacity: 1; transform: none;
+  transition: opacity .42s var(--ease) .08s, transform .42s var(--ease) .08s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fade, .fade.in { opacity: 1; transform: none; transition: none; }
+  .flip { display: none; }
+  .sheet { animation: none; }
+  * { transition: none !important; }
+}
+
+/* ------------------------------------------------------------- toasts --- */
+
+.toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(8px);
+  background: var(--text); color: var(--surface);
+  border-radius: 9px; padding: 11px 18px; font-size: 13.5px; font-weight: 600;
+  box-shadow: var(--lift); opacity: 0; pointer-events: none;
+  transition: opacity .2s var(--ease), transform .2s var(--ease);
+  z-index: 300;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* -------------------------------------------------------------- misc ---- */
+
+.veil {
+  border: 1px dashed var(--line); border-radius: var(--r);
+  padding: 13px 15px; font-size: 12px; color: var(--muted); line-height: 1.6;
+}
+.veil b { color: var(--text); font-weight: 650; }
+
+.state {
+  font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase;
+  border: 1px solid var(--accent); border-radius: var(--r-pill);
+  padding: 4px 10px; white-space: nowrap; font-weight: 600;
+}
+.state.done { background: var(--accent); color: var(--surface); }
+.state.wait { border-color: var(--line); color: var(--muted); }
+
+.bubbles { display: flex; flex-direction: column; gap: 8px; }
+.bubble { max-width: 76%; padding: 10px 14px; border-radius: 15px; font-size: 14px; line-height: 1.45; }
+.bubble.theirs { background: var(--recess); align-self: flex-start; border-bottom-left-radius: 4px; }
+.bubble.mine { background: var(--accent); color: var(--surface); align-self: flex-end; border-bottom-right-radius: 4px; }
+
+.set-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 18px; padding: 15px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap;
+}
+.set-row:last-child { border-bottom: 0; }
+.set-row .t { font-weight: 650; font-size: 14px; }
+.set-row .d { font-size: 12.5px; color: var(--muted); max-width: 46ch; margin-top: 2px; }
+
+.scroll-y { max-height: 460px; overflow-y: auto; scrollbar-width: thin; }
+.scroll-y::-webkit-scrollbar { width: 6px; }
+.scroll-y::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
