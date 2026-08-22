@@ -204,6 +204,12 @@ BB.screens.network = function () {
             </button>
             ${strengthCell(t)}
           </div>`).join("")}
+        <div class="row" style="margin-top:14px;flex-wrap:wrap">
+          <button class="btn sm" data-invite-wa>Invite by WhatsApp</button>
+          <button class="btn sm quiet" data-share-invite>Other ways</button>
+          <span class="small muted">The code comes from your sheet, one per
+            named person.</span>
+        </div>
         ${editing ? (() => {
           const t = ties.find(x => x.id === editing);
           const name = t ? t.member.first : "";

@@ -320,15 +320,31 @@
        codes live in the founders' sheet, one per named person, and are never
        stored in this app. Blackbook composes; the member picks the recipient
        in their own messenger, so no contact list ever touches us. */
+    const inviteText = () =>
+      "I'm building something with a partner: a private network "
+      + "for people who can actually do deals. Referral only, no directory, "
+      + "no feed. I get two invitations and I'm spending one on you. Your "
+      + "code is XXXX-XXXX, at https://blackbook.london. It's free while "
+      + "we're in the founding intake, and the one thing we ask for is your "
+      + "honest feedback.";
+    const inviteRemind = "Now swap XXXX-XXXX for a code from your sheet, and write their name against it.";
+
+    /* WhatsApp directly, because that is where these invitations will
+       actually be sent. wa.me with prefilled text opens the app with the
+       message ready and the recipient still chosen by the member in
+       WhatsApp itself, so no contact list ever touches us. */
+    const waInv = e.target.closest("[data-invite-wa]");
+    if (waInv) {
+      window.open("https://wa.me/?text=" + encodeURIComponent(inviteText()),
+        "_blank", "noopener");
+      toast("WhatsApp is opening. " + inviteRemind);
+      return;
+    }
+
     const shareInv = e.target.closest("[data-share-invite]");
     if (shareInv) {
-      const text = "I'm building something with a partner: a private network "
-        + "for people who can actually do deals. Referral only, no directory, "
-        + "no feed. I get two invitations and I'm spending one on you. Your "
-        + "code is XXXX-XXXX, at https://blackbook.london. It's free while "
-        + "we're in the founding intake, and the one thing we ask for is your "
-        + "honest feedback.";
-      const remind = "Now swap XXXX-XXXX for a code from your sheet, and write their name against it.";
+      const text = inviteText();
+      const remind = inviteRemind;
       if (navigator.share) {
         navigator.share({ text })
           .then(() => toast("Shared. " + remind))

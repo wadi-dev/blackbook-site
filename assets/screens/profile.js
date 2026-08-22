@@ -308,7 +308,8 @@ BB.screens.settings = function () {
           <span class="pill">${API.me().invitesLeft} of ${API.me().invitesTotal}</span>
         </div>
         <div class="row" style="margin-top:2px;flex-wrap:wrap">
-          <button class="btn sm" data-share-invite>Share an invitation</button>
+          <button class="btn sm" data-invite-wa>Invite by WhatsApp</button>
+          <button class="btn sm" data-share-invite>Other ways to share</button>
           <button class="btn sm" data-qr>${BB.state.showQr ? "Hide the QR" : "Show as QR"}</button>
           <span class="small muted">The message is written for you. The code
             comes from your own sheet, one per named person.</span>
