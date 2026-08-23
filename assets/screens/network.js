@@ -204,13 +204,14 @@ BB.screens.network = function () {
             </button>
             ${strengthCell(t)}
           </div>`).join("")}
-        <div class="row" style="margin-top:14px;flex-wrap:wrap">
+        <div class="row" style="margin-top:14px;flex-wrap:wrap;gap:8px">
           <button class="btn sm" data-invite-wa>Invite by WhatsApp</button>
-          <button class="btn sm quiet" data-share-invite>Other ways</button>
-          <button class="btn sm quiet" data-qr>${BB.state.showQr ? "Hide the QR" : "Show as QR"}</button>
-          <span class="small muted">The code comes from your sheet, one per
-            named person.</span>
+          <button class="btn sm" data-share-invite>Other ways</button>
+          <button class="btn sm" data-qr>${BB.state.showQr ? "Hide the QR" : "Show as QR"}</button>
         </div>
+        <p class="small muted" style="margin-top:9px">
+          The code comes from your sheet, one per named person.
+        </p>
         ${BB.state.showQr ? `
         <div style="margin-top:14px;text-align:center">
           <div style="display:inline-block;background:#fff;padding:18px;border:1px solid var(--line);border-radius:14px">
