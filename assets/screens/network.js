@@ -207,9 +207,24 @@ BB.screens.network = function () {
         <div class="row" style="margin-top:14px;flex-wrap:wrap">
           <button class="btn sm" data-invite-wa>Invite by WhatsApp</button>
           <button class="btn sm quiet" data-share-invite>Other ways</button>
+          <button class="btn sm quiet" data-qr>${BB.state.showQr ? "Hide the QR" : "Show as QR"}</button>
           <span class="small muted">The code comes from your sheet, one per
             named person.</span>
         </div>
+        ${BB.state.showQr ? `
+        <div style="margin-top:14px;text-align:center">
+          <div style="display:inline-block;background:#fff;padding:18px;border:1px solid var(--line);border-radius:14px">
+            <svg viewBox="0 0 ${QR_N} ${QR_N}" width="204" height="204"
+              shape-rendering="crispEdges" role="img"
+              aria-label="QR code opening the Blackbook invitation gate">
+              <path d="${QR_PATH}" fill="#000"/>
+            </svg>
+          </div>
+          <p class="small muted" style="margin-top:10px;line-height:1.6">
+            Scanning opens the invitation gate on their phone. The code you
+            give them yourself.
+          </p>
+        </div>` : ""}
         ${editing ? (() => {
           const t = ties.find(x => x.id === editing);
           const name = t ? t.member.first : "";

@@ -22,7 +22,7 @@ DB.members = [
     role: "Co-Founder & Chief Operating Officer", firm: "Blackbook", city: "London",
     sector: "Corporate Leadership", sub: "Chief Operating Officer",
     founder: true, founding: false, verified: "30 Jul 2026",
-    invitesTotal: 2, invitesLeft: 2, referredBy: "The founders",
+    invitesTotal: 5, invitesLeft: 5, referredBy: "The founders",
     ask: "", askType: "door", askAge: 0, askOptIns: 0, askOpen: false,
     gives: [
       { text: "Introductions to MDs and directors at bulge-bracket banks in London",
@@ -38,7 +38,7 @@ DB.members = [
     role: "Co-Founder", firm: "Blackbook", city: "London",
     sector: "Technology", sub: "Founder / Chief Executive",
     founder: true, founding: false, verified: "21 Aug 2026",
-    invitesTotal: 2, invitesLeft: 2, referredBy: "The founders",
+    invitesTotal: 5, invitesLeft: 5, referredBy: "The founders",
     ask: "", askType: "door", askAge: 0, askOptIns: 0, askOpen: false,
     gives: [],
     achievements: [] }

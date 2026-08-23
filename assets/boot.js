@@ -323,7 +323,7 @@
     const inviteText = () =>
       "I'm building something with a partner: a private network "
       + "for people who can actually do deals. Referral only, no directory, "
-      + "no feed. I get two invitations and I'm spending one on you. Your "
+      + "no feed. I get five invitations and I'm spending one on you. Your "
       + "code is XXXX-XXXX, at https://blackbook.london. It's free while "
       + "we're in the founding intake, and the one thing we ask for is your "
       + "honest feedback.";
