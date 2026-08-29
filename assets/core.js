@@ -292,6 +292,14 @@ function wireGraph(root) {
   let mode = null, id = null, last = null, moved = 0;
   let dragEl = null, dragEdge = null;   /* resolved once, on pointerdown */
 
+  /* A phone has no wheel, and zoom is the graph's one navigation. Pinch is
+     the wheel's touch twin: two active pointers, the change in the distance
+     between them multiplied straight onto the scale. Anchoring needs no
+     extra maths because graphTransform derives the translate from the scale
+     with the hub pinned, exactly as it does for the wheel. */
+  const pts = new Map();                /* active pointers, for the pinch */
+  let pinchDist = 0;
+
   const paint = () => view.setAttribute("transform", graphTransform());
 
   /* How far out you may zoom depends on how big the web actually is. A fixed
@@ -331,6 +339,20 @@ function wireGraph(root) {
        graph "going black" actually was. */
     e.preventDefault();
 
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) {
+      /* A second finger turns whatever was happening into a pinch. The node
+         that was mid-drag simply stays where it is; nothing to undo. */
+      view.querySelectorAll(".grabbed").forEach(n => n.classList.remove("grabbed"));
+      svg.classList.remove("dragging");
+      document.body.classList.remove("dragging");
+      mode = "pinch"; id = null; dragEl = null; dragEdge = null;
+      const [a, b] = [...pts.values()];
+      pinchDist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      try { svg.setPointerCapture(e.pointerId); } catch (err) { /* nicety */ }
+      return;
+    }
+
     /* You are the fixed point, and so is the web around you. Only the people
        in it move.
 
@@ -362,6 +384,17 @@ function wireGraph(root) {
   });
 
   svg.addEventListener("pointermove", e => {
+    if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (mode === "pinch") {
+      if (pts.size < 2) return;
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      G.scale = Number(Math.min(2.4, Math.max(zoomFloor(),
+        G.scale * (d / pinchDist))).toFixed(4));
+      pinchDist = d;
+      paint();
+      return;
+    }
     if (!mode) return;
     const dx = e.clientX - last.x, dy = e.clientY - last.y;
     last = { x: e.clientX, y: e.clientY };
@@ -379,6 +412,22 @@ function wireGraph(root) {
   });
 
   const end = e => {
+    if (e && e.pointerId != null) pts.delete(e.pointerId);
+    if (mode === "pinch") {
+      /* One finger lifting re-bases the pinch; the last one ends it. A pinch
+         is never a tap, so none of the open-profile logic below applies. */
+      if (pts.size >= 2) {
+        const [a, b] = [...pts.values()];
+        pinchDist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        return;
+      }
+      mode = null;
+      try {
+        if (e && e.pointerId != null && svg.hasPointerCapture(e.pointerId))
+          svg.releasePointerCapture(e.pointerId);
+      } catch (err) { /* already gone */ }
+      return;
+    }
     if (!mode) return;
     /* A drag must not also count as opening the profile. */
     if (moved < 4) {
