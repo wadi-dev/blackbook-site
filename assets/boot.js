@@ -126,6 +126,12 @@
     const tab = e.target.closest(".tabbar [data-go], #sheet [data-go]");
     if (tab) { go(tab.dataset.go); return; }
 
+    /* In-content navigation, e.g. "Find them in Members" on the network
+       screen. Separate from the tab selector above so a screen button cannot
+       accidentally match the bar's aria state handling. */
+    const jump = e.target.closest("#screen [data-go-screen]");
+    if (jump) { go(jump.dataset.goScreen); return; }
+
     const seg = e.target.closest("#set-theme button, #set-density button");
     if (seg) {
       const group = seg.closest(".segmented");

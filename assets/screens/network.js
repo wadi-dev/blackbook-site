@@ -204,28 +204,6 @@ BB.screens.network = function () {
             </button>
             ${strengthCell(t)}
           </div>`).join("")}
-        <div class="row" style="margin-top:14px;flex-wrap:wrap;gap:8px">
-          <button class="btn sm" data-invite-wa>Invite by WhatsApp</button>
-          <button class="btn sm" data-share-invite>Other ways</button>
-          <button class="btn sm" data-qr>${BB.state.showQr ? "Hide the QR" : "Show as QR"}</button>
-        </div>
-        <p class="small muted" style="margin-top:9px">
-          The code comes from your sheet, one per named person.
-        </p>
-        ${BB.state.showQr ? `
-        <div style="margin-top:14px;text-align:center">
-          <div style="display:inline-block;background:#fff;padding:18px;border:1px solid var(--line);border-radius:14px">
-            <svg viewBox="0 0 ${QR_N} ${QR_N}" width="204" height="204"
-              shape-rendering="crispEdges" role="img"
-              aria-label="QR code opening the Blackbook invitation gate">
-              <path d="${QR_PATH}" fill="#000"/>
-            </svg>
-          </div>
-          <p class="small muted" style="margin-top:10px;line-height:1.6">
-            Scanning opens the invitation gate on their phone. The code you
-            give them yourself.
-          </p>
-        </div>` : ""}
         ${editing ? (() => {
           const t = ties.find(x => x.id === editing);
           const name = t ? t.member.first : "";
@@ -257,6 +235,50 @@ BB.screens.network = function () {
             How far would you actually go for them? Nobody is told, and it
             changes nothing they see.</p>${extra}`;
         })() : ""}
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Grow your network</h2>
+          <span class="eyebrow">Invitations ${me.invitesLeft} of ${me.invitesTotal}</span></div>
+
+        <p class="small" style="font-weight:650;margin-bottom:4px">Someone already on Blackbook</p>
+        <p class="small muted" style="line-height:1.6;margin-bottom:10px">
+          Met a member in person? Open their profile and tell us you have met.
+          They confirm, you connect, and each of you keeps your own private
+          vouch. Nothing costs an invitation.
+        </p>
+        <button class="btn sm" data-go-screen="members">Find them in Members</button>
+
+        <div style="border-top:1px solid var(--line);margin:16px 0"></div>
+
+        <p class="small" style="font-weight:650;margin-bottom:4px">Someone new</p>
+        <p class="small muted" style="line-height:1.6;margin-bottom:10px">
+          Spending an invitation is the only way in. ${me.invitesLeft} of
+          ${me.invitesTotal} unspent, none outstanding: a code you have handed
+          out shows here until it is used.
+        </p>
+        <div class="row" style="flex-wrap:wrap;gap:8px">
+          <button class="btn sm" data-invite-wa>Invite by WhatsApp</button>
+          <button class="btn sm" data-share-invite>Other ways</button>
+          <button class="btn sm" data-qr>${BB.state.showQr ? "Hide the QR" : "Show as QR"}</button>
+        </div>
+        <p class="small muted" style="margin-top:9px">
+          The code comes from your sheet, one per named person.
+        </p>
+        ${BB.state.showQr ? `
+        <div style="margin-top:14px;text-align:center">
+          <div style="display:inline-block;background:#fff;padding:18px;border:1px solid var(--line);border-radius:14px">
+            <svg viewBox="0 0 ${QR_N} ${QR_N}" width="204" height="204"
+              shape-rendering="crispEdges" role="img"
+              aria-label="QR code opening the Blackbook invitation gate">
+              <path d="${QR_PATH}" fill="#000"/>
+            </svg>
+          </div>
+          <p class="small muted" style="margin-top:10px;line-height:1.6">
+            Scanning opens the invitation gate on their phone. The code you
+            give them yourself.
+          </p>
+        </div>` : ""}
       </div>
 
       ${BB.state.showReach ? `
