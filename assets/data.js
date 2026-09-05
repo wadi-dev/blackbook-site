@@ -5,7 +5,7 @@
    real endpoint would return, so swapping to fetch() later is a change in this
    file only — no screen touches the data directly.
 
-   The founders are real. There are no other records: the network
+   The founder is real. There are no other records: the network
    fills with real members or stays honestly empty.
    ========================================================================== */
 
@@ -14,15 +14,14 @@ const DB = {};
 /* ---------------------------------------------------------------- people -- */
 
 DB.members = [
-  /* The founders. The only real people, and the only records. Everything a
-     founder has not written themselves is absent rather than invented: no
-     ask until Wadi writes one in the product, no achievements against a real
-     name, and Sam's gives are his to declare. */
+  /* The founder. The only real person, and the only record. Everything he
+     has not written himself is absent rather than invented: no ask until
+     Wadi writes one in the product, no achievements against a real name. */
   { id: "wg", first: "Wadi", last: "Hussain", initials: "WH",
-    role: "Co-Founder & Chief Operating Officer", firm: "Blackbook", city: "London",
+    role: "Founder", firm: "Blackbook", city: "London",
     sector: "Corporate Leadership", sub: "Chief Operating Officer",
     founder: true, founding: false, verified: "30 Jul 2026",
-    invitesTotal: 5, invitesLeft: 5, referredBy: "The founders",
+    invitesTotal: 5, invitesLeft: 5, referredBy: "Founder",
     ask: "", askType: "door", askAge: 0, askOptIns: 0, askOpen: false,
     gives: [
       { text: "Introductions to MDs and directors at bulge-bracket banks in London",
@@ -32,15 +31,6 @@ DB.members = [
       { text: "How to get a UK data-protection position right before launch rather than after",
         type: "judgment", confidence: 5 }
     ],
-    achievements: [] },
-
-  { id: "st", first: "Samuel", last: "Thompson", initials: "ST",
-    role: "Co-Founder", firm: "Blackbook", city: "London",
-    sector: "Technology", sub: "Founder / Chief Executive",
-    founder: true, founding: false, verified: "21 Aug 2026",
-    invitesTotal: 5, invitesLeft: 5, referredBy: "The founders",
-    ask: "", askType: "door", askAge: 0, askOptIns: 0, askOpen: false,
-    gives: [],
     achievements: [] }
 ];
 
@@ -50,8 +40,8 @@ DB.me = "wg";
 /* Declared strength, 1–7. Held privately: never shown to the person rated. */
 
 DB.ties = [
-  /* The co-founders arrive connected. Nobody starts at zero. */
-  { id: "st", strength: 7, since: "2026" }
+  /* Empty until the first real member joins. Nobody starts at zero: the
+     referrer becomes the first connection at joining. */
 ];
 
 /* Ties between other members, which is what makes a second degree exist.
@@ -89,7 +79,7 @@ DB.blocks = [];
    invitation, the other accepts or silently declines. Only the invitation
    travels, never the number, so the only signal another member can ever
    receive is a compliment. */
-DB.circle = ["st"];
+DB.circle = [];
 
 /* Invitations to a circle, pending this member's answer. */
 DB.circleInvites = [];
@@ -483,7 +473,7 @@ const API = {
      industry, is higher than the cost of being sold to.
 
      Note what is deliberately NOT returned: how many other people have
-     reported the same person. That is the founders' view, not a member's.
+     reported the same person. That is the founder's view, not a member's.
      Telling one member that two others have complained hands them a fact about
      two people who did not consent to share it. */
   report(id, reason, detail) {

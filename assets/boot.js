@@ -323,11 +323,11 @@
     /* ---- Sharing an invitation --------------------------------------------
        Composes the message and hands it to the device's own share sheet, or
        the clipboard on desktop. The code stays a placeholder on purpose: real
-       codes live in the founders' sheet, one per named person, and are never
+       codes live in the founder's sheet, one per named person, and are never
        stored in this app. Blackbook composes; the member picks the recipient
        in their own messenger, so no contact list ever touches us. */
     const inviteText = () =>
-      "I'm building something with a partner: a private network "
+      "I'm building something: a private network "
       + "for people who can actually do deals. Referral only, no directory, "
       + "no feed. I get five invitations and I'm spending one on you. Your "
       + "code is XXXX-XXXX, at https://blackbook.london. It's free while "
