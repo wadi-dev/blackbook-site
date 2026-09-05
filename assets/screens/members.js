@@ -1,4 +1,4 @@
-/* Members — a flat list, filtered by what people can open, and by sector.
+/* Members, a flat list, filtered by what people can open, and by sector.
 
    Two axes, deliberately unequal. Give type is the chips, because "what can
    this person do for me" is the question the screen exists to answer. Sector
@@ -127,7 +127,7 @@ BB.screens.members = function () {
         </span>
         <span class="opens">
           <span class="small muted what">${esc(g ? g.text : "No gives yet")}</span>
-          <span class="tag">${esc(g ? DB.types[g.type] : "—")}</span>
+          <span class="tag">${esc(g ? DB.types[g.type] : "–")}</span>
         </span>
       </button>`;
     }).join("")}
@@ -147,7 +147,7 @@ BB.screens.members = function () {
     <button class="btn sm quiet" data-clear-filters>Show all</button></p>` : ""}`;
 };
 
-/* Search — anonymised for strangers, open for people you already know.
+/* Search, anonymised for strangers, open for people you already know.
 
    One field, no operators, no filter chips. The chips that used to sit here
    did nothing and did not look interactive; a search that needs a filter row

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   BLACKBOOK — the match engine
+   BLACKBOOK: the match engine
 
    Blackbook is not software that connects people. It is two people connecting
    others by hand, with software keeping the record. That makes operator time

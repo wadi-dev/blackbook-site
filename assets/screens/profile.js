@@ -1,4 +1,4 @@
-/* The member profile — the destination of the one signature motion.
+/* The member profile, the destination of the one signature motion.
 
    Left rail: the photo and who they connect with. Right: what they can open,
    what they have done, and what they need. The Ask is the only element on the
@@ -217,7 +217,7 @@ function reportBlock(m) {
 }
 
 
-/* Settings — preferences, visibility, membership. */
+/* Settings, preferences, visibility, membership. */
 
 BB.screens.settings = function () {
   const theme = document.documentElement.dataset.theme || "auto";

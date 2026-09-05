@@ -1,4 +1,4 @@
-/* Network — the graph, and the maintenance of it.
+/* Network, the graph, and the maintenance of it.
 
    Line weight AND darkness both carry strength. Redundant encoding on purpose:
    it survives colour blindness, greyscale printing and a screenshot pasted

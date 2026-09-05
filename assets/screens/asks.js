@@ -1,4 +1,4 @@
-/* Asks — what members need.
+/* Asks, what members need.
 
    Ordered by whether you can actually help, then by how long it has waited.
    Deliberately not by an urgency number the asker sets themselves: a

@@ -8,7 +8,7 @@
   try {
     theme = localStorage.getItem("bb-theme") || "auto";
     density = localStorage.getItem("bb-density") || "comfortable";
-  } catch (e) { /* private browsing — defaults are fine */ }
+  } catch (e) { /* private browsing, defaults are fine */ }
 
   setTheme(theme);
   setDensity(density);
@@ -440,7 +440,7 @@
     }
   });
 
-  /* Search types straight into the screen rather than on submit — one field,
+  /* Search types straight into the screen rather than on submit, one field,
      no operators, no button. */
   document.addEventListener("input", e => {
     if (e.target.id === "q") {

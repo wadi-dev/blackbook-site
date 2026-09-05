@@ -1,9 +1,9 @@
 /* ==========================================================================
-   BLACKBOOK — mock data
+   BLACKBOOK: mock data
 
    Stands in for the API. Every function here is written to mirror the shape a
    real endpoint would return, so swapping to fetch() later is a change in this
-   file only — no screen touches the data directly.
+   file only, no screen touches the data directly.
 
    The founder is real. There are no other records: the network
    fills with real members or stays honestly empty.
@@ -50,7 +50,7 @@ DB.ties = [
 DB.memberTies = [];
 
 /* Members who have blocked visibility to this member's firm. Held as seats
-   only — the searcher must never be able to work out who they are, so no
+   only, the searcher must never be able to work out who they are, so no
    name, no id, nothing joinable back to a member record. */
 DB.blocked = [];
 
@@ -234,7 +234,7 @@ DB.subsectors = {
 };
 
 /* Strength ramp: weight of black, never hue. Ordinal data on an ordinal
-   channel — it survives colour blindness, greyscale and a screenshot. */
+   channel, it survives colour blindness, greyscale and a screenshot. */
 DB.ramp = { 7: "#0A0A0A", 6: "#333333", 5: "#555555", 4: "#777777",
             3: "#999999", 2: "#B5B5B5", 1: "#CFCFCF" };
 DB.rampDark = { 7: "#FFFFFF", 6: "#D6D6D6", 5: "#AFAFAF", 4: "#8A8A8A",
@@ -263,8 +263,8 @@ const API = {
   },
 
   /* Two different questions, and conflating them is how the counts went wrong:
-       askersFor  — how many members are ASKING for this type (what a give is worth)
-       giversOf   — how many members can GIVE this type (what an ask can expect)
+       askersFor , how many members are ASKING for this type (what a give is worth)
+       giversOf  , how many members can GIVE this type (what an ask can expect)
      Both exclude the viewer: your own record is not a match for itself. */
   askersFor(type) {
     return DB.members.filter(m =>
@@ -290,7 +290,7 @@ const API = {
       connections: DB.ties.length,
       made, received, gives, asks,
       /* No ask yet means no ratio, not a division by zero dressed as a number. */
-      ratio: asks ? (gives / asks).toFixed(1) + "×" : "—"
+      ratio: asks ? (gives / asks).toFixed(1) + "×" : "–"
     };
   },
 

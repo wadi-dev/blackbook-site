@@ -1,8 +1,8 @@
-/* Home — the member's own standing.
+/* Home, the member's own standing.
 
    Deliberately not an activity feed. It opens on what you are asking for and
    what you have given, because the first question every session should prompt
-   is "is this still how I want to be seen?" — not "what has everyone else
+   is "is this still how I want to be seen?", not "what has everyone else
    achieved?". There are no view counts, no profile-strength meters and no
    streaks anywhere in Blackbook. */
 

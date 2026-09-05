@@ -1,5 +1,5 @@
 /* ==========================================================================
-   BLACKBOOK — shell, router and shared helpers
+   BLACKBOOK: shell, router and shared helpers
 
    No framework and no build step, matching the conventions of the existing
    application so this can drop into appui/ rather than compete with it.
@@ -82,7 +82,7 @@ const ICON = {
   back: '<path d="M11 4L5 10l6 6"/>',
 
   /* Tab-bar icons. Drawn to the same 20-unit box and 1.5 stroke as the two
-     above. Members and More are built from rounded squares on purpose — it is
+     above. Members and More are built from rounded squares on purpose, it is
      the shape people are drawn as everywhere else in the product. */
   home:    '<path d="M3.4 8.5 10 3.2l6.6 5.3V16a1.2 1.2 0 0 1-1.2 1.2H4.6A1.2 1.2 0 0 1 3.4 16z"/>',
   asks:    '<path d="M16.8 12.1a1.8 1.8 0 0 1-1.8 1.8H7.7L4 16.8V5.7a1.8 1.8 0 0 1 1.8-1.8h9.2a1.8 1.8 0 0 1 1.8 1.8z"/>',
@@ -93,13 +93,13 @@ const ICON = {
 
 /* The bottom bar, on mobile.
 
-   Seven destinations do not fit across 375px — five is the width at which a
+   Seven destinations do not fit across 375px, five is the width at which a
    label is still readable. The split is by frequency, not importance: Home,
    Asks, Members and Introductions are the daily loop; Network is maintenance,
    Gives is set-and-forget, Settings is rare. Those three sit behind More.
 
    Messages is the awkward one. It is low-volume but it carries a badge, so
-   More carries that badge too — nothing that is waiting for you is ever
+   More carries that badge too, nothing that is waiting for you is ever
    invisible because it happens to live one level down. */
 
 const TABS = [
@@ -199,7 +199,7 @@ function setSheet(open) {
 
 function go(screen) {
   /* A profile can still be open when navigation happens. It is appended to the
-     body rather than to #screen, so it survives a render — leaving a dead
+     body rather than to #screen, so it survives a render, leaving a dead
      overlay on top and the body permanently scroll-locked. Tear it down here
      rather than trusting every caller to close it first. */
   const open = document.getElementById("detail");
@@ -565,7 +565,7 @@ function act(kind, btn) {
    it one step; Home leaves entirely.
 
    It exists because the previous version appended a SECOND #detail for every
-   hop — duplicate ids, and Back removed whichever getElementById found first,
+   hop, duplicate ids, and Back removed whichever getElementById found first,
    which was the one underneath. You ended up stranded on a profile with the
    scroll lock already released and Back doing nothing. */
 BB.trail = [];
@@ -694,7 +694,7 @@ function openMember(id, srcTile) {
   document.addEventListener("keydown", escClose);
 }
 
-/* Escape follows Back, not Close — one step out of the trail at a time. */
+/* Escape follows Back, not Close, one step out of the trail at a time. */
 function escClose(e) {
   if (e.key !== "Escape" || !document.getElementById("detail")) return;
   BB.trail.pop();

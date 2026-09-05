@@ -1,8 +1,8 @@
 /* ==========================================================================
-   BLACKBOOK — design system
+   BLACKBOOK: design system
 
    Californian Minimalist. Strictly monochrome: white ground, black type,
-   black borders. There is no accent hue — the accent IS ink.
+   black borders. There is no accent hue, the accent IS ink.
 
    The discipline, and why:
    - State (selected, active, pressed) is expressed by INVERSION: black fill,
@@ -87,7 +87,7 @@
 /* ------------------------------------------------------------- theming ----
    Three modes on <html data-theme>: light · dark · auto.
    Auto follows the operating system, which is the thing that actually knows
-   about sunrise and ambient light. No JS — the media query is live, so it
+   about sunrise and ambient light. No JS, the media query is live, so it
    flips the moment the device does. Unset behaves as auto.
    -------------------------------------------------------------------------- */
 
@@ -241,7 +241,7 @@ strong, b { font-weight: 650; }
 .icon-btn svg { width: 17px; height: 17px; }
 
 /* Search is reached from here rather than from a tab, so it needs its own
-   current state — otherwise the search screen is the one place in the app
+   current state, otherwise the search screen is the one place in the app
    where nothing at all is lit and the navigation says nothing about where
    you are. */
 .icon-btn[aria-current="true"] {
@@ -356,7 +356,7 @@ body.dragging, body.dragging * { user-select: none !important; }
 /* ------------------------------------------------------- bottom tabs --- */
 
 /* Mobile navigation. Below 860px the top nav is replaced entirely by this,
-   rather than being made to scroll — a nav you have to scroll to find your own
+   rather than being made to scroll, a nav you have to scroll to find your own
    location in is not navigation.
 
    State is inversion, as everywhere else: the active tab goes to full ink and
@@ -625,7 +625,7 @@ select {
     var(--recess-2) 0 6px, transparent 6px 12px);
 }
 
-/* Founder mark — a solid pill after the name, state by inversion like
+/* Founder mark, a solid pill after the name, state by inversion like
    everything else in the system. Sized in ems so it scales with the display
    type it sits beside, and lifted off the baseline so it reads as a mark on
    the name rather than a word in it. */
@@ -669,7 +669,7 @@ select {
 .prow:hover .who { text-decoration: underline; text-underline-offset: 3px; }
 
 /* What the member can open, sitting at the end of the row. It is the reason to
-   approach them, so it never gets dropped on small screens — it moves under the
+   approach them, so it never gets dropped on small screens, it moves under the
    name instead, aligned to it rather than to the tile. */
 .prow .opens {
   display: flex; align-items: center; gap: 8px;
@@ -681,7 +681,7 @@ select {
 }
 /* The name column was taking all the slack while five of nine gives truncated,
    and the give is the reason the row exists. So above 1040px it may claim more
-   width — but only by SHRINKING, never by forcing: a rigid .opens at this cap
+   width, but only by SHRINKING, never by forcing: a rigid .opens at this cap
    pushed the page 186px wide and truncated every name on the screen. */
 @media (min-width: 861px) {
   .prow .opens { flex-shrink: 1; }
@@ -699,7 +699,7 @@ select {
     max-width: none; white-space: normal; overflow: visible; line-height: 1.4;
   }
 
-  /* The 1–7 ramp needs ~330px, which leaves nothing for the name — it collapsed
+  /* The 1–7 ramp needs ~330px, which leaves nothing for the name, it collapsed
      to "P." / "S.". So it takes its own line and spreads across it, and you can
      still see whose strength you are setting. */
   .prow.editing { flex-wrap: wrap; row-gap: 10px; }
@@ -775,7 +775,7 @@ select {
   margin: 2px 0 5px; line-height: 1.3;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* Names wrap here rather than truncate — a 104px tile is too narrow to
+/* Names wrap here rather than truncate, a 104px tile is too narrow to
    truncate a name without losing the surname entirely. The inline bracket
    variant keeps the founder mark flowing correctly across two lines. */
 

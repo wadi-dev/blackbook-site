@@ -1,4 +1,4 @@
-/* Gives — what you can open for someone else.
+/* Gives, what you can open for someone else.
 
    Typed to the same five categories as asks, so a give in one row satisfies an
    ask in the same row. That is the whole matching engine, and it runs without

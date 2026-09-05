@@ -1,8 +1,8 @@
-/* Introductions — the double opt-in, made visible.
+/* Introductions, the double opt-in, made visible.
 
    The state is shown as a state, not hidden behind a status word. Irreversible
    actions announce themselves before you take them. Declining is silent and
-   costless, and the person who asked is never told it was a decline — only
+   costless, and the person who asked is never told it was a decline, only
    that it did not proceed. */
 
 const STATE_LABEL = {
@@ -80,7 +80,7 @@ BB.screens.introductions = function () {
     const m = i.member;
 
     /* Double opt-in cuts both ways. Until you have accepted, an incoming
-       request shows their SEAT, not their name — exactly as yours shows to
+       request shows their SEAT, not their name, exactly as yours shows to
        them. Showing their identity while telling you yours is protected would
        make the promise look one-sided, and it is not. */
     const veiled = i.direction === "incoming" && i.state === "awaiting";
@@ -222,7 +222,7 @@ BB.screens.introductions = function () {
   </div>`;
 };
 
-/* Messages — the private thread with the broker.
+/* Messages, the private thread with the broker.
 
    Note what this is not: there is no member-to-member messaging in Blackbook.
    Once an introduction is released the conversation moves to the members' own
