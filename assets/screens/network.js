@@ -185,7 +185,7 @@ BB.screens.network = function () {
 
     <div class="stack">
       <div class="card">
-        <div class="card-head"><h2>On Blackbook</h2>
+        <div class="card-head"><h2>On Blackbook London</h2>
           <span class="eyebrow">${ties.length}</span></div>
         ${!ties.length ? `
           <div class="empty">
@@ -241,7 +241,7 @@ BB.screens.network = function () {
         <div class="card-head"><h2>Grow your network</h2>
           <span class="eyebrow">Invitations ${me.invitesLeft} of ${me.invitesTotal}</span></div>
 
-        <p class="small" style="font-weight:650;margin-bottom:4px">Someone already on Blackbook</p>
+        <p class="small" style="font-weight:650;margin-bottom:4px">Someone already on Blackbook London</p>
         <p class="small muted" style="line-height:1.6;margin-bottom:10px">
           Met a member in person? Open their profile and tell us you have met.
           They confirm, you connect, and each of you keeps your own private
@@ -270,7 +270,7 @@ BB.screens.network = function () {
           <div style="display:inline-block;background:#fff;padding:18px;border:1px solid var(--line);border-radius:14px">
             <svg viewBox="0 0 ${QR_N} ${QR_N}" width="204" height="204"
               shape-rendering="crispEdges" role="img"
-              aria-label="QR code opening the Blackbook invitation gate">
+              aria-label="QR code opening the Blackbook London invitation gate">
               <path d="${QR_PATH}" fill="#000"/>
             </svg>
           </div>
@@ -309,7 +309,7 @@ BB.screens.network = function () {
       </div>` : ""}
 
       <div class="card">
-        <div class="card-head"><h2>People not on Blackbook</h2></div>
+        <div class="card-head"><h2>People not on Blackbook London</h2></div>
         <div class="veil">
           <b>We hold nothing about them.</b> Not a name, not a firm, not a note.
           The people you know who are not members stay in your own phone, where
@@ -318,7 +318,7 @@ BB.screens.network = function () {
         </div>
         <p class="small muted" style="margin-top:12px;line-height:1.6">
           This is why we can tell a stranger, truthfully, that they do not appear
-          anywhere in Blackbook until they join it themselves.
+          anywhere in Blackbook London until they join it themselves.
         </p>
       </div>
     </div>

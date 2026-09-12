@@ -133,6 +133,38 @@ a.wordmark { text-decoration: none; color: var(--text); }
   .lp-doc h2 { margin-top: 32px; }
 }
 
+/* ------------------------------------------------------- invitation form -- */
+/* The one form on the public side. Rules scoped to .lp-enter so the app's
+   form tokens in app.css are inherited, not copied. */
+
+.lp-enter .lead { margin: 18px 0 30px; color: var(--muted); }
+.lp-enter .fld { margin-top: 18px; }
+.lp-enter .fld input {
+  width: 100%; font-size: 15px; color: var(--text);
+  background: var(--recess);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 11px 13px;
+}
+.lp-enter .fld input:focus { border-color: var(--accent); }
+.lp-enter .fld input[aria-invalid="true"] { border-color: var(--danger); }
+.lp-enter .lbl .opt {
+  text-transform: none; letter-spacing: 0; font-weight: 500; margin-left: 6px;
+}
+
+.lp-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+
+.lp-help { margin: 8px 0 0; line-height: 1.6; }
+.lp-submit { margin-top: 24px; }
+.lp-msg { margin: 14px 0 0; min-height: 1.4em; line-height: 1.5; }
+.lp-nothing { line-height: 1.65; }
+
+.lp-joined { margin-top: 34px; outline: none; }
+.lp-joined h2 { margin-top: 0; }
+
+@media (max-width: 520px) {
+  .lp-pair { grid-template-columns: 1fr; }
+}
+
 /* ---------------------------------------------------------------- footer -- */
 
 .lp-foot {

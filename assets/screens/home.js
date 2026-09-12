@@ -4,7 +4,7 @@
    what you have given, because the first question every session should prompt
    is "is this still how I want to be seen?", not "what has everyone else
    achieved?". There are no view counts, no profile-strength meters and no
-   streaks anywhere in Blackbook. */
+   streaks anywhere in Blackbook London. */
 
 BB.screens.home = function () {
   const me = API.me();

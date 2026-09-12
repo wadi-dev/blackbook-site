@@ -2,50 +2,120 @@
 <html lang="en-GB" data-theme="auto">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'self'; form-action 'self'">
+<!-- connect-src names the API origin by hand because a meta policy cannot
+     read assets/config.js. If API_BASE changes, change it here and on every
+     other page too, or the browser blocks the POST and the page reports that
+     the door could not be reached. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://clerk.blackbook.london; connect-src 'self' https://clerk.blackbook.london https://blackbook-london-api.fly.dev; img-src 'self' data: https://img.clerk.com; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-src https://challenges.cloudflare.com; worker-src 'self' blob:; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>Blackbook: You've been invited</title>
+<title>Blackbook London: You've been invited</title>
 <link rel="stylesheet" href="assets/app.css?v=1787479262">
 <link rel="stylesheet" href="assets/landing.css?v=1787479262">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Blackbook London">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png">
+<script src="assets/pwa.js" defer></script>
 </head>
 <body class="lp">
 
 <header class="lp-bar">
-  <a class="wordmark" href="landing.html">Blackbook</a>
-  <a class="btn sm" href="landing.html">Back</a>
+  <a class="wordmark" href="index.html">Blackbook London</a>
+  <a class="btn sm" href="index.html">Back</a>
 </header>
 
 <main class="lp-doc lp-enter">
   <h1>You've been invited.</h1>
   <p class="lead">
     A member spent one of their invitations on you. Their name stays
-    attached to yours for as long as you are here.
+    attached to yours for as long as you are here. Tell us who you are, and
+    we will review it.
   </p>
 
-  <form id="code-form" novalidate>
+  <!-- method="post" so that if assets/join.js has not attached its handler the
+       browser's native submission is a POST to this page (which GitHub Pages
+       answers with 405) rather than a GET carrying the invitation code and the
+       applicant's details in the URL. -->
+  <form id="join-form" method="post" novalidate>
     <label class="fld">
       <span class="lbl">Invitation code</span>
-      <input id="code" type="text" inputmode="text" autocomplete="off"
-        spellcheck="false" placeholder="XXXX-XXXX" maxlength="9"
+      <input id="code" name="code" type="text" inputmode="text"
+        autocomplete="off" autocapitalize="off" autocorrect="off"
+        spellcheck="false" maxlength="64" required
         aria-describedby="code-help">
     </label>
-    <p id="code-help" class="small muted" style="margin-top:8px">
-      Eight characters, from your inviter personally. Scanning alone reveals
-      nothing: if you don't have your code, ask the person who invited you.
-      Not case sensitive.
+    <p id="code-help" class="small muted lp-help">
+      Paste it exactly as it was sent to you. It is case sensitive, and it
+      came from your inviter personally: if you don't have one, ask the person
+      who invited you.
     </p>
-    <div class="row" style="margin-top:20px">
-      <button class="btn primary" type="submit">Continue</button>
+
+    <!-- Shown only after the backend has said the code is live. -->
+    <div id="step-two" hidden>
+    <div class="lp-pair">
+      <label class="fld">
+        <span class="lbl">First name</span>
+        <input id="first_name" name="first_name" type="text"
+          autocomplete="given-name" maxlength="120" required>
+      </label>
+      <label class="fld">
+        <span class="lbl">Last name</span>
+        <input id="last_name" name="last_name" type="text"
+          autocomplete="family-name" maxlength="120" required>
+      </label>
     </div>
-    <p id="code-msg" class="small" role="status" aria-live="polite"
-       style="margin-top:14px;min-height:1.4em"></p>
+
+    <label class="fld">
+      <span class="lbl">Email</span>
+      <input id="email" name="email" type="email" inputmode="email"
+        autocomplete="email" autocapitalize="off" spellcheck="false"
+        maxlength="320" required aria-describedby="email-help">
+    </label>
+    <p id="email-help" class="small muted lp-help">
+      The invitation to sign in goes to this address, so use one you will
+      still hold in a few weeks.
+    </p>
+
+    <div class="lp-pair">
+      <label class="fld">
+        <span class="lbl">Role <span class="opt">optional</span></span>
+        <input id="role_title" name="role_title" type="text"
+          autocomplete="organization-title" maxlength="160">
+      </label>
+      <label class="fld">
+        <span class="lbl">Firm <span class="opt">optional</span></span>
+        <input id="firm" name="firm" type="text"
+          autocomplete="organization" maxlength="160">
+      </label>
+    </div>
+
+    </div>
+
+    <div class="row lp-submit">
+      <button id="submit" class="btn primary" type="submit">Continue</button>
+      <button id="change-code" class="btn sm" type="button" hidden>Use a different code</button>
+    </div>
+    <p id="join-msg" class="small lp-msg" role="status" aria-live="polite"></p>
   </form>
+
+  <section id="joined" class="lp-joined" hidden tabindex="-1">
+    <h2>Received.</h2>
+    <p>
+      Your application is with us and will be read by a person. Once it has
+      been reviewed, an invitation to sign in follows by email. There is
+      nothing more to do here.
+    </p>
+  </section>
 
   <hr class="lp-rule">
 
-  <p class="small muted" style="line-height:1.65">
+  <p class="small muted lp-nothing">
     No invitation? There is nothing here for you to do, and we would rather say
     so than keep a waiting list nobody reads. Membership is by referral and
     there is no way to apply.
@@ -54,146 +124,18 @@
 
 <footer class="lp-foot">
   <div>
-    <span class="wordmark">Blackbook</span>
+    <span class="wordmark">Blackbook London</span>
     <p class="small muted">London. By referral only.</p>
   </div>
   <nav class="small">
     <a href="privacy.html">Privacy</a>
     <a href="terms.html">Terms of membership</a>
-    <a href="landing.html">Home</a>
+    <a href="index.html">Home</a>
   </nav>
 </footer>
 
-<script>
-/* Format as the member types, so the field teaches its own shape rather than
-   rejecting them afterwards.
-
-   The gate checks real codes now. The page holds only SHA-256 hashes, so
-   reading this source, or the repository it lives in, yields no code: the
-   codes themselves exist in exactly one private file, and each one is handed
-   to a named person. Minting or retiring a code is editing this list.
-
-   This is a gate, not an account system. A valid code opens the app; it does
-   not yet create anything or know who you are. That honesty used to be a
-   banner on the page; now it lives here, where the person it concerns most,
-   the next developer, will find it. */
-(function () {
-  const HASHES = new Set([
-    "24ee211b3e0929c43cea038526d0699e3d8ab8441305733ef3b28a68acc9f5bd",
-    "3b27446c25855f4f73f2862ec3ad4b93e5d63cd3cc243dd4b4cc411a22e8e131",
-    "0be2f89d96b37ca47ed0bc5ad5fcdd17cab3cab36c8dbf81751201864bd23b2b",
-    "38b4bab8fc3474128727e6d2282bdf769b83c661dd38fc1ab24bc59eb1916e78",
-    "8d173bd87c7ccf8b9c3eaa360e4b7209a20000f49fb06e0ab02d9305fc540030",
-    "975573fa0e9108d00badc139d15b4f709c79f44c83ebf0f91b60a5b809a102f8",
-    "26f9fbae989f7945947edef11bc2940d5715f23086c622d9cd522cb06e84f7a8",
-    "0ae564b22910913822b7a11f7417c61071350bedb14a1cbb4ddf64ef13d565c7",
-    "8c9039dbb9d604613836cf220f25bd3d259b23fc00c45ed4f56c95e927c904fc",
-    "321c84a291ebca01b9dc2711bebc2230afd73660363636ed81b127bb32500d16",
-    "12bf8668234a2ab0e455ae30c41faa46ce708705898c61c1d6739c36479e8c9e",
-    "6352df7b3cf97b842e6a915b364b20030b7bdad67813660ea122529ecc42a95d"
-  ]);
-
-  const field = document.getElementById("code");
-  const form  = document.getElementById("code-form");
-  const msg   = document.getElementById("code-msg");
-
-  /* Pure-JS SHA-256, used only when crypto.subtle is unavailable, which
-     means a plain-http connection (secure contexts get the native one). The
-     gate must not care how a visitor arrived: a valid code works over http
-     during the certificate window, behind odd corporate proxies, everywhere.
-     Verified against the standard test vector at development time. */
-  const sha256js = ascii => {
-    const rr = (v, n) => (v >>> n) | (v << (32 - n));
-    const maxWord = 2 ** 32;
-    let result = "", words = [], asciiBitLength = ascii.length * 8;
-    let hash = [], k = [], primeCounter = 0;
-    const isComposite = {};
-    for (let candidate = 2; primeCounter < 64; candidate++) {
-      if (!isComposite[candidate]) {
-        for (let i = 0; i < 313; i += candidate) isComposite[i] = candidate;
-        hash[primeCounter] = (candidate ** 0.5 * maxWord) | 0;
-        k[primeCounter++] = (candidate ** (1 / 3) * maxWord) | 0;
-      }
-    }
-    ascii += "\x80";
-    while (ascii.length % 64 - 56) ascii += "\x00";
-    for (let i = 0; i < ascii.length; i++) {
-      const j = ascii.charCodeAt(i);
-      if (j >> 8) return "";
-      words[i >> 2] |= j << ((3 - i) % 4) * 8;
-    }
-    words[words.length] = (asciiBitLength / maxWord) | 0;
-    words[words.length] = asciiBitLength;
-    for (let j = 0; j < words.length;) {
-      const w = words.slice(j, j += 16);
-      const oldHash = hash;
-      hash = hash.slice(0, 8);
-      for (let i = 0; i < 64; i++) {
-        const w15 = w[i - 15], w2 = w[i - 2];
-        const a = hash[0], e = hash[4];
-        const temp1 = hash[7]
-          + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25))
-          + ((e & hash[5]) ^ (~e & hash[6]))
-          + k[i]
-          + (w[i] = (i < 16) ? w[i] : (w[i - 16]
-            + (rr(w15, 7) ^ rr(w15, 18) ^ (w15 >>> 3))
-            + w[i - 7]
-            + (rr(w2, 17) ^ rr(w2, 19) ^ (w2 >>> 10))) | 0);
-        const temp2 = (rr(a, 2) ^ rr(a, 13) ^ rr(a, 22))
-          + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
-        hash = [(temp1 + temp2) | 0].concat(hash);
-        hash[4] = (hash[4] + temp1) | 0;
-      }
-      for (let i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
-    }
-    for (let i = 0; i < 8; i++)
-      for (let j = 3; j + 1; j--) {
-        const b = (hash[i] >> (j * 8)) & 255;
-        result += (b < 16 ? "0" : "") + b.toString(16);
-      }
-    return result;
-  };
-
-  const sha256 = async s => {
-    if (crypto.subtle) {
-      const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-      return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, "0")).join("");
-    }
-    return sha256js(s);
-  };
-
-  field.addEventListener("input", () => {
-    const caretAtEnd = field.selectionStart === field.value.length;
-    const raw = field.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
-    field.value = raw.length > 4 ? raw.slice(0, 4) + "-" + raw.slice(4) : raw;
-    if (caretAtEnd) field.setSelectionRange(field.value.length, field.value.length);
-    msg.textContent = "";
-    field.removeAttribute("aria-invalid");
-  });
-
-  form.addEventListener("submit", async e => {
-    e.preventDefault();
-    const raw = field.value.replace(/-/g, "");
-    if (raw.length < 8) {
-      field.setAttribute("aria-invalid", "true");
-      msg.textContent = "That code is not complete. It is eight characters.";
-      field.focus();
-      return;
-    }
-    if (HASHES.has(await sha256(raw))) {
-      msg.textContent = "Accepted. Opening Blackbook.";
-      setTimeout(() => { location.href = "app.html"; }, 450);
-    } else {
-      field.setAttribute("aria-invalid", "true");
-      msg.textContent = "That code is not recognised. Codes are personal, so "
-        + "check with the person who sent yours.";
-      field.focus();
-    }
-  });
-
-  field.focus();
-})();
-</script>
+<script src="assets/config.js"></script>
+<script src="assets/join.js"></script>
 
 </body>
 </html>

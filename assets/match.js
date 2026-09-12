@@ -1,7 +1,7 @@
 /* ==========================================================================
    BLACKBOOK: the match engine
 
-   Blackbook is not software that connects people. It is two people connecting
+   Blackbook London is not software that connects people. It is two people connecting
    others by hand, with software keeping the record. That makes operator time
    the only thing standing between 10 members and 300, and matching is where
    most of that time goes: reading every ask, holding every give in your head,

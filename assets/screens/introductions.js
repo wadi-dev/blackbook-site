@@ -151,7 +151,7 @@ BB.screens.introductions = function () {
           <span class="state">Connection</span>
         </div>
         <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.55">
-          Confirming connects you on Blackbook. You each then set, privately,
+          Confirming connects you on Blackbook London. You each then set, privately,
           how far you would go for the other, and neither is ever shown the
           other's answer.
         </p>
@@ -224,7 +224,7 @@ BB.screens.introductions = function () {
 
 /* Messages, the private thread with the broker.
 
-   Note what this is not: there is no member-to-member messaging in Blackbook.
+   Note what this is not: there is no member-to-member messaging in Blackbook London.
    Once an introduction is released the conversation moves to the members' own
    channels. A banker discussing a live deal in an unapproved app creates an
    off-channel communications problem for their employer, and their compliance
@@ -259,7 +259,7 @@ BB.screens.messages = function () {
       <div class="bubbles">
         ${active.messages.map(msg => `
           <div class="bubble ${msg.from === "me" ? "mine" : "theirs"}">
-            ${msg.from === "us" ? '<span class="eyebrow" style="display:block;margin-bottom:4px">Blackbook</span>' : ""}
+            ${msg.from === "us" ? '<span class="eyebrow" style="display:block;margin-bottom:4px">Blackbook London</span>' : ""}
             ${esc(msg.text)}
           </div>`).join("")}
       </div>

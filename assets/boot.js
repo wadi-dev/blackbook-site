@@ -12,7 +12,14 @@
 
   setTheme(theme);
   setDensity(density);
-  render();
+
+  /* auth.js redirects a signed-out visitor. Rendering first would paint the
+     mock screens for a moment on their way out. If ready() rejects, auth.js
+     has already covered the page with its notice, so nothing is drawn behind
+     it. Without auth.js (a page that never loaded it) the shell renders at
+     once, as before. */
+  if (BB.auth) BB.auth.ready().then(() => render(), () => {});
+  else render();
 
   /* Delegated once, at the document level, so it survives every re-render. */
   document.addEventListener("click", e => {
@@ -324,7 +331,7 @@
        Composes the message and hands it to the device's own share sheet, or
        the clipboard on desktop. The code stays a placeholder on purpose: real
        codes live in the founder's sheet, one per named person, and are never
-       stored in this app. Blackbook composes; the member picks the recipient
+       stored in this app. Blackbook London composes; the member picks the recipient
        in their own messenger, so no contact list ever touches us. */
     const inviteText = () =>
       "I'm building something: a private network "

@@ -120,7 +120,7 @@ function renderChrome() {
 
   document.getElementById("topbar").innerHTML = `
     <div class="topbar-inner">
-      <span class="wordmark">Blackbook</span>
+      <span class="wordmark">Blackbook London</span>
       <nav class="nav" aria-label="Main">
         ${NAV.map(([k, label]) => {
           const n = k === "messages" ? unread : k === "introductions" ? waiting : 0;
@@ -558,7 +558,7 @@ function act(kind, btn) {
 /* The one signature motion in the system: the tile the member clicked flies
    into the profile, interpolating position, size, radius and type size at
    once, so the card *is* the profile opened rather than a new page loading.
-   Everything else in Blackbook is instant. */
+   Everything else in Blackbook London is instant. */
 
 /* The trail of profiles opened without leaving the overlay. Profiles link to
    each other through "Connects with", so this can go several deep. Back walks

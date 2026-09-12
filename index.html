@@ -2,21 +2,36 @@
 <html lang="en-GB" data-theme="auto">
 <head>
 <meta charset="utf-8">
-<meta name="robots" content="noindex, nofollow">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'self'; form-action 'self'">
+<!-- One policy, the same string on every page, so a page cannot be the weak
+     one. Scripts run from this origin and Clerk's Frontend API host only, with
+     no unsafe-inline and no unsafe-eval. style-src keeps 'unsafe-inline'
+     because Clerk's components inject their styles at runtime and do not
+     render without it; that concession is the policy's one cost and is
+     recorded in docs/clerk.md. GitHub Pages cannot send headers, so this meta
+     tag is the whole policy and frame-ancestors cannot be expressed in it. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://clerk.blackbook.london; connect-src 'self' https://clerk.blackbook.london https://blackbook-london-api.fly.dev; img-src 'self' data: https://img.clerk.com; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-src https://challenges.cloudflare.com; worker-src 'self' blob:; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Blackbook</title>
+<title>Blackbook London</title>
 <meta name="description" content="A private network. By referral only.">
 <link rel="stylesheet" href="assets/app.css?v=1787479262">
 <link rel="stylesheet" href="assets/landing.css?v=1787479262">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Blackbook London">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png">
+<script src="assets/pwa.js" defer></script>
 </head>
 <body class="lp">
 
 <header class="lp-bar">
-  <span class="wordmark">Blackbook</span>
+  <span class="wordmark">Blackbook London</span>
   <div class="row" style="gap:10px">
-    <a class="btn sm" href="app.html">Sign in</a>
+    <a class="btn sm" href="signin.html">Sign in</a>
     <a class="btn sm primary" href="enter.html">I have an invitation</a>
   </div>
 </header>
@@ -83,7 +98,7 @@
     <p class="eyebrow">What we never do</p>
     <p class="lp-note">
       These are not settings. They do not have a switch, and there is no version
-      of Blackbook in which they are turned off.
+      of Blackbook London in which they are turned off.
     </p>
     <ul class="lp-list tight">
       <li><b>Your name is never shown in search.</b>
@@ -124,7 +139,7 @@
 
 <footer class="lp-foot">
   <div>
-    <span class="wordmark">Blackbook</span>
+    <span class="wordmark">Blackbook London</span>
     <p class="small muted">
       London. By referral only.
     </p>

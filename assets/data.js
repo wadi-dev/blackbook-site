@@ -18,7 +18,7 @@ DB.members = [
      has not written himself is absent rather than invented: no ask until
      Wadi writes one in the product, no achievements against a real name. */
   { id: "wg", first: "Wadi", last: "Hussain", initials: "WH",
-    role: "Founder", firm: "Blackbook", city: "London",
+    role: "Founder", firm: "Blackbook London", city: "London",
     sector: "Corporate Leadership", sub: "Chief Operating Officer",
     founder: true, founding: false, verified: "30 Jul 2026",
     invitesTotal: 5, invitesLeft: 5, referredBy: "Founder",
@@ -142,7 +142,7 @@ DB.reportReasons = {
 DB.intros = [];
 
 /* Threads are between the member and US, about a specific introduction.
-   There is no member-to-member messaging in Blackbook: once an introduction is
+   There is no member-to-member messaging in Blackbook London: once an introduction is
    released the conversation moves to the members' own channels. A banker
    discussing a live deal in an unapproved app creates an off-channel
    communications problem for their employer, and their compliance team would

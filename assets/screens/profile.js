@@ -158,7 +158,7 @@ function closedCard(m) {
    sold to. It has to be findable without being suggested.
 
    The copy states what actually happens, and what happens is small, because
-   Blackbook cannot see the conversation it is being told about. One report is
+   Blackbook London cannot see the conversation it is being told about. One report is
    one person's word. That is worth saying rather than implying an
    investigation that cannot happen. */
 
@@ -271,7 +271,7 @@ BB.screens.settings = function () {
         <div class="card-head"><h2>What we never do</h2></div>
         <p class="small muted" style="margin-bottom:16px;line-height:1.6">
           Not settings. These do not have a switch, and there is no version of
-          Blackbook in which they are turned off.
+          Blackbook London in which they are turned off.
         </p>
         <ul style="list-style:none">
           ${[["Your name is never shown in search.",

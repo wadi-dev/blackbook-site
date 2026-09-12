@@ -1,0 +1,39 @@
+/* Deployment configuration. Loaded before every other script on a page that
+   talks to the API or to Clerk.
+
+   Every value here is public by design. The API base is the address the
+   browser fetches anyway, and Clerk's publishable key and Frontend API host
+   are built to be shipped in page source: the publishable key can start a
+   sign-in but cannot read or change anything, and the secret key that can
+   never leaves the backend. Nothing in this file is a credential. */
+
+window.BB_CONFIG = Object.freeze({
+
+  /* Base URL of the FastAPI service, scheme and host, no trailing slash.
+     Not known until the service is deployed. The .example domain is reserved,
+     so nothing is ever sent anywhere while this placeholder stands; BB.api()
+     also refuses a base containing REPLACE. The pages' CSP names
+     https://blackbook-london-api.fly.dev in connect-src as the working
+     assumption. It was blackbook-api.fly.dev until 12 September 2026, when
+     that hostname turned out to be serving a third party's API already (its
+     preflight named another site as the allowed origin); Fly app names are
+     global. When the real origin is confirmed by the deploy, set it here and
+     in the Content-Security-Policy meta on every page (a meta tag cannot read
+     this file): the two change together.
+     BB.api() resolves every path against this and refuses anything that
+     resolves elsewhere. */
+  API_BASE: "https://REPLACE-ME.example",
+
+  /* Clerk Dashboard > Configure > API keys > Publishable key.
+     Production keys start pk_live_, development keys pk_test_. The key
+     encodes the Frontend API host, so the two values below must come from the
+     same instance. */
+  CLERK_PUBLISHABLE_KEY: "pk_test_REPLACE-ME",
+
+  /* Clerk Dashboard > Configure > API keys > Frontend API URL, host only, no
+     scheme. Production serves it from a CNAME on our own domain,
+     clerk.blackbook.london (see docs/clerk.md). A development instance uses
+     <slug>.clerk.accounts.dev. ClerkJS itself is loaded from this host, so it
+     must also appear in the page's script-src and connect-src. */
+  CLERK_FRONTEND_API: "REPLACE-ME.clerk.accounts.dev"
+});
