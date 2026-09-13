@@ -208,16 +208,22 @@ strong, b { font-weight: 650; }
   display: flex; align-items: center; gap: 28px;
   padding: 14px 24px;
 }
-/* The geographic tag beside the name: inline, half the size, quieter, spaced
-   like the name so it reads as part of the same mark rather than a second
-   word. The brackets are part of the tag. */
-.wordmark .tag {
+/* The geographic tag beside the name: the same text, same colour, same
+   spacing, at half the size, one space to the right on the same line. It is
+   not a badge: no border, no background, no padding. Its own class, because
+   .tag is the app's bordered badge and borrowing that name is how the mark
+   grew a box (2026-09-13). */
+.wordmark .geo {
   font-size: 0.5em;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  color: var(--muted);
-  margin-left: 0.55em;
-  vertical-align: 0.08em;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  vertical-align: baseline;
 }
 
 .wordmark {
