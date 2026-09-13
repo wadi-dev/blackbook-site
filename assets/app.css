@@ -1,3 +1,8 @@
+/* The hidden attribute wins over every display rule below it. Without this,
+   .btn's display put "Use a different code" on screen in step one, where its
+   click did nothing because there was nothing to undo (2026-09-13). */
+[hidden] { display: none !important; }
+
 /* ==========================================================================
    BLACKBOOK: design system
 
@@ -203,6 +208,18 @@ strong, b { font-weight: 650; }
   display: flex; align-items: center; gap: 28px;
   padding: 14px 24px;
 }
+/* The geographic tag beside the name: inline, half the size, quieter, spaced
+   like the name so it reads as part of the same mark rather than a second
+   word. The brackets are part of the tag. */
+.wordmark .tag {
+  font-size: 0.5em;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  color: var(--muted);
+  margin-left: 0.55em;
+  vertical-align: 0.08em;
+}
+
 .wordmark {
   font-family: var(--font-display);
   font-size: 13px; font-weight: 650;

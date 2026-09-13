@@ -112,6 +112,9 @@
   change.addEventListener("click", () => {
     clearMarks();
     showStepOne();
+    // A different code means a different code: the field is emptied, not
+    // merely unlocked, so the person is not left editing the old one.
+    fields.code.value = "";
     fields.code.focus();
   });
 
