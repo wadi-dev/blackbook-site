@@ -216,7 +216,9 @@ strong, b { font-weight: 650; }
 .wordmark .geo {
   font-size: 0.5em;
   font-weight: inherit;
-  letter-spacing: inherit;
+  /* Tight, not spaced: inheriting the name's 0.3em at half the size left
+     the letters and brackets standing apart from each other. */
+  letter-spacing: -0.05em;
   text-transform: inherit;
   color: inherit;
   background: none;
