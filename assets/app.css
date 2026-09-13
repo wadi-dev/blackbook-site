@@ -214,7 +214,7 @@ strong, b { font-weight: 650; }
    .tag is the app's bordered badge and borrowing that name is how the mark
    grew a box (2026-09-13). */
 .wordmark .geo {
-  font-size: 0.5em;
+  font-size: 0.65em;
   font-weight: inherit;
   /* Tight, not spaced: inheriting the name's 0.3em at half the size left
      the letters and brackets standing apart from each other. */
@@ -224,7 +224,11 @@ strong, b { font-weight: 650; }
   background: none;
   border: 0;
   padding: 0;
-  margin: 0;
+  /* Pulled back against the name. The name's letter-spacing (0.3em of 13px,
+     3.9px) is applied after its last letter too, and that is the whole of
+     the gap; measured in a browser, -0.15em of this span's 8.45px closed a
+     third of it. -0.42em closes all but a hair, without overlapping the k. */
+  margin: 0 0 0 -0.42em;
   vertical-align: baseline;
 }
 

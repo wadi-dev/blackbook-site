@@ -120,7 +120,7 @@ function renderChrome() {
 
   document.getElementById("topbar").innerHTML = `
     <div class="topbar-inner">
-      <span class="wordmark">Blackbook <span class="geo">(London)</span></span>
+      <span class="wordmark">Blackbook<span class="geo">(London)</span></span>
       <nav class="nav" aria-label="Main">
         ${NAV.map(([k, label]) => {
           const n = k === "messages" ? unread : k === "introductions" ? waiting : 0;
