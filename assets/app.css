@@ -91,9 +91,10 @@
 
 /* ------------------------------------------------------------- theming ----
    Three modes on <html data-theme>: light · dark · auto.
-   Auto follows the operating system, which is the thing that actually knows
-   about sunrise and ambient light. No JS, the media query is live, so it
-   flips the moment the device does. Unset behaves as auto.
+   Auto follows local daylight: assets/daylight.js works out sunrise and
+   sunset from the browser's time zone and the date, no location asked for,
+   and writes light or dark to the attribute. The media query below is the
+   fallback for a page where that script has not run. Unset behaves as auto.
    -------------------------------------------------------------------------- */
 
 [data-theme="dark"] {

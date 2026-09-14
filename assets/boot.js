@@ -470,9 +470,9 @@
   });
 
   /* Auto theme has to repaint the network map, whose line colours are resolved
-     in JS rather than CSS. Everything else follows the media query on its own. */
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-    if ((document.documentElement.dataset.theme || "auto") === "auto"
-        && BB.state.screen === "network") render();
+     in JS rather than CSS. daylight.js announces each flip; everything else
+     follows the attribute through the stylesheet on its own. */
+  document.addEventListener("bb-theme-applied", () => {
+    if (BB.state.screen === "network") render();
   });
 })();

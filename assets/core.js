@@ -51,11 +51,11 @@ const tile = (m, size, extra) => {
     `${esc(m.initials)}</div>`;
 };
 
-/* Resolve the strength ramp against the theme actually in effect. */
+/* Resolve the strength ramp against the theme actually in effect. Since
+   daylight.js resolves Auto to light or dark on the root before anything
+   paints, the attribute is the truth and the media query no longer is. */
 function ramp(n) {
-  const dark = document.documentElement.dataset.theme === "dark" ||
-    ((document.documentElement.dataset.theme || "auto") === "auto" &&
-      matchMedia("(prefers-color-scheme: dark)").matches);
+  const dark = document.documentElement.dataset.theme === "dark";
   return (dark ? DB.rampDark : DB.ramp)[n] || "#E8E8E8";
 }
 
@@ -751,8 +751,14 @@ function closeMember(srcTile) {
 /* ----------------------------------------------------------- preferences -- */
 
 function setTheme(v) {
-  document.documentElement.dataset.theme = ["light", "dark", "auto"].includes(v) ? v : "auto";
+  const pref = ["light", "dark", "auto"].includes(v) ? v : "auto";
   try { localStorage.setItem("bb-theme", v); } catch (e) {}
+  document.documentElement.dataset.themePreference = pref;
+  /* Auto is resolved by daylight.js into light or dark on the root. Only
+     when that script is missing does "auto" reach the attribute, where the
+     stylesheet's media rule still handles it. */
+  if (pref === "auto" && window.BBDaylight) BBDaylight.apply();
+  else document.documentElement.dataset.theme = pref;
   if (BB.state.screen === "network") render();
 }
 function setDensity(v) {

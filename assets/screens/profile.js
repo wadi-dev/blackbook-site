@@ -220,7 +220,8 @@ function reportBlock(m) {
 /* Settings, preferences, visibility, membership. */
 
 BB.screens.settings = function () {
-  const theme = document.documentElement.dataset.theme || "auto";
+  const theme = document.documentElement.dataset.themePreference
+    || document.documentElement.dataset.theme || "auto";
   const density = document.documentElement.dataset.density || "comfortable";
   const seg = (id, opts, current) =>
     `<div class="segmented" id="${id}" role="group">` +
@@ -236,7 +237,7 @@ BB.screens.settings = function () {
         <div class="card-head"><h2>Appearance</h2></div>
         <div class="set-row">
           <div><div class="t">Theme</div>
-            <div class="d">Auto follows your device, so it turns dark in the evening
+            <div class="d">Auto follows local daylight, worked out from your time zone, so it turns dark in the evening
               and light in the morning.</div></div>
           ${seg("set-theme", [["light","Light"],["dark","Dark"],["auto","Auto"]], theme)}
         </div>
