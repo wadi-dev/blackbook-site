@@ -36,4 +36,16 @@ window.BB_CONFIG = Object.freeze({
      <slug>.clerk.accounts.dev. ClerkJS itself is loaded from this host, so it
      must also appear in the page's script-src and connect-src. */
   CLERK_FRONTEND_API: "REPLACE-ME.clerk.accounts.dev"
+
+  /* DEV_BEARER, optional, and deliberately not present here.
+
+     A non-empty string makes auth.js skip Clerk altogether: ready() resolves
+     at once, token() hands this string to every request, signedIn() is true,
+     user() is {demo: true} and signOut() goes to index.html. It exists for
+     the demo and is written into the demo's copy of this file by the demo's
+     site builder, never by hand and never into production. It is safe there
+     and nowhere else: the demo API accepts unsigned tokens and reaches only
+     the throwaway database, so the string opens nothing real, and a
+     production config that carried it would still be talking to an API that
+     refuses it. See docs/admin.md. */
 });

@@ -224,11 +224,12 @@ strong, b { font-weight: 650; }
   background: none;
   border: 0;
   padding: 0;
-  /* Pulled back against the name. The name's letter-spacing (0.3em of 13px,
-     3.9px) is applied after its last letter too, and that is the whole of
-     the gap; measured in a browser, -0.15em of this span's 8.45px closed a
-     third of it. -0.42em closes all but a hair, without overlapping the k. */
-  margin: 0 0 0 -0.42em;
+  /* Pulled back towards the name, not flush against it. The name's
+     letter-spacing (0.3em of 13px, 3.9px) is applied after its last letter
+     too, and that is the whole of the gap; -0.42em closed all of it and the
+     bracket sat on the k. -0.1em leaves a breathable gap between the k and
+     the bracket, close enough to read as one mark. */
+  margin: 0 0 0 -0.1em;
   vertical-align: baseline;
 }
 
@@ -883,3 +884,32 @@ select {
 .scroll-y { max-height: 460px; overflow-y: auto; scrollbar-width: thin; }
 .scroll-y::-webkit-scrollbar { width: 6px; }
 .scroll-y::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+
+/* --------------------------------------------------------------- admin --- */
+/* The broker's desk. The same three moves as everywhere else: hairline cards,
+   muted secondary lines, inversion for the one primary action. No colour is
+   introduced for a refusal; the notice is a bordered sentence, read, not seen. */
+
+.admin-notice {
+  border: 1px solid var(--line-strong); border-radius: var(--r);
+  padding: 12px 15px; margin-bottom: var(--gap);
+  font-size: 13.5px; line-height: 1.5;
+}
+.admin-name { font-weight: 650; font-size: 14px; }
+.admin-row .admin-acts { flex: 0 0 auto; }
+.admin-state { font-size: 14px; padding: 6px 0; }
+
+/* One row per seat, indented by generation. Depth is set per row as a custom
+   property so the indent is arithmetic rather than a class per level, and the
+   container scrolls sideways before a deep chain can widen the page. */
+.lineage {
+  border: 1px solid var(--line); border-radius: var(--r);
+  overflow-x: auto;
+}
+.lineage-node {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px var(--pad) 10px calc(var(--pad) + var(--depth, 0) * 22px);
+  border-bottom: 1px solid var(--line);
+}
+.lineage-node:last-child { border-bottom: 0; }
+.lineage-name { font-weight: 650; font-size: 14px; min-width: 0; }

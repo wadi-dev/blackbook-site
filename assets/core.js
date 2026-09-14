@@ -75,6 +75,12 @@ const NAV = [
   ["home", "Home"], ["network", "Network"], ["asks", "Asks"], ["gives", "Gives"],
   ["members", "Members"], ["introductions", "Introductions"], ["messages", "Messages"]
 ];
+/* Admin is not in NAV. It is added at the far right of the topbar, and at
+   the foot of the More sheet on a phone, once the API has answered that the
+   caller is staff (BB.auth.isStaff sets BB.staff), so a member's chrome never
+   carries the word; the screen itself asks the API again. */
+const ADMIN_NAV = ["admin", "Admin"];
+const withAdmin = list => BB.staff === true ? list.concat([ADMIN_NAV]) : list;
 
 const ICON = {
   cog: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.6v2M10 15.4v2M2.6 10h2M15.4 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M15.3 4.7l-1.4 1.4M6.1 13.9l-1.4 1.4"/>',
@@ -109,7 +115,6 @@ const TABS = [
 const SHEET = [
   ["network", "Network"], ["gives", "Gives"], ["messages", "Messages"], ["settings", "Settings"]
 ];
-const IN_SHEET = SHEET.map(s => s[0]);
 const svg = (paths, size) =>
   `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" ` +
   `stroke-linecap="round" stroke-linejoin="round"${size ? ` style="width:${size}px;height:${size}px"` : ""}>${paths}</svg>`;
@@ -122,7 +127,7 @@ function renderChrome() {
     <div class="topbar-inner">
       <span class="wordmark">Blackbook<span class="geo">(London)</span></span>
       <nav class="nav" aria-label="Main">
-        ${NAV.map(([k, label]) => {
+        ${withAdmin(NAV).map(([k, label]) => {
           const n = k === "messages" ? unread : k === "introductions" ? waiting : 0;
           return `<button data-go="${k}" aria-current="${BB.state.screen === k}">${label}` +
             (n ? `<span class="count">${n}</span>` : "") + `</button>`;
@@ -133,7 +138,8 @@ function renderChrome() {
       <button class="icon-btn" data-go="settings" title="Settings" aria-label="Settings">${svg(ICON.cog)}</button>
     </div>`;
 
-  const onSheet = IN_SHEET.includes(BB.state.screen);
+  const sheet = withAdmin(SHEET);
+  const onSheet = sheet.some(([k]) => k === BB.state.screen);
 
   document.getElementById("tabbar").innerHTML = TABS.map(([k, label, icon]) => {
     const current = k === "more" ? onSheet : BB.state.screen === k;
@@ -144,7 +150,7 @@ function renderChrome() {
       (n ? `<span class="count">${n}</span>` : "") + `</button>`;
   }).join("");
 
-  document.querySelector("#sheet .sheet-list").innerHTML = SHEET.map(([k, label]) => {
+  document.querySelector("#sheet .sheet-list").innerHTML = sheet.map(([k, label]) => {
     const n = k === "messages" ? unread : 0;
     return `<button class="item" data-go="${k}" aria-current="${BB.state.screen === k}">
       <span class="grow">${label}</span>` +

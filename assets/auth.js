@@ -10,7 +10,11 @@
    Load order on a guarded page: config.js, core.js, then this file. core.js
    declares BB as a top-level const, which is a lexical binding rather than a
    window property, so this file attaches to that binding when it exists and
-   only creates window.BB on pages that never load core.js. */
+   only creates window.BB on pages that never load core.js.
+
+   A third mode, for the demo only: when BB_CONFIG.DEV_BEARER is a non-empty
+   string, Clerk is never loaded and that string is the bearer on every
+   request. See the DEV_BEARER block below for why that is safe. */
 
 (function () {
   "use strict";
@@ -20,6 +24,16 @@
 
   const SIGNIN = "signin.html";
   const APP = "app.html";
+  const HOME = "index.html";
+
+  /* Set only by the demo's site builder, into the demo's own config.js.
+     Safe because of where it can go and what it can reach: the demo API
+     accepts unsigned tokens and reaches only the throwaway database that is
+     rebuilt with the demo, and production config never carries the key, so
+     there is no deployment in which this string opens anything real. api.js
+     needs no change: it asks token() for a bearer and gets this one. */
+  const DEV_BEARER = typeof cfg.DEV_BEARER === "string" && cfg.DEV_BEARER.trim()
+    ? cfg.DEV_BEARER.trim() : null;
 
   const here = () => location.pathname.split("/").pop() || "index.html";
   const abs = rel => new URL(rel, location.href).href;
@@ -145,7 +159,17 @@
 
   let clerk = null;
 
-  const ready = (async () => {
+  /* The demo is signed in from the first byte. A visit to signin.html has
+     nothing to mount, so it goes where a signed-in visitor always goes. */
+  const devReady = async () => {
+    if (document.getElementById("signin")) {
+      location.replace(abs(safeBack(new URLSearchParams(location.search).get("back"))));
+      await new Promise(() => {});
+    }
+    return null;
+  };
+
+  const ready = DEV_BEARER ? devReady() : (async () => {
     const mount = document.getElementById("signin");
     try {
       clerk = await loadClerk();
@@ -192,28 +216,52 @@
   })();
   ready.catch(() => {});
 
+  /* Staff or not, decided by the API and by nothing on this side. There is
+     no role flag in the token or the config to read, and one here would be a
+     claim the API never made. GET /api/broker/queue is staff-only and answers
+     a member with the same 404 an unregistered path gets, so a member learns
+     nothing from the probe and neither does anyone reading this file. The
+     answer is kept for the session; a failure that is not a 404 (offline,
+     say) is not an answer, so the next call asks again. */
+  let staff = null;
+  const isStaff = () => {
+    if (!staff) {
+      staff = ready.then(() => root.api("/api/broker/queue")).then(() => true, e => {
+        if (e && e.status === 404) return false;
+        staff = null;
+        return false;
+      });
+    }
+    return staff;
+  };
+
   root.auth = {
     ready: () => ready,
-    signedIn: () => Boolean(clerk && clerk.session),
+    signedIn: () => DEV_BEARER ? true : Boolean(clerk && clerk.session),
+    isStaff,
 
     /* Asked for immediately before each request. The SDK refreshes the token
        as it nears expiry and keeps it in memory; we keep nothing. Resolves
        null when there is no session. */
     token: async () => {
       await ready;
+      if (DEV_BEARER) return DEV_BEARER;
       return clerk.session ? clerk.session.getToken() : null;
     },
 
     /* Ends the Clerk session, then lands on signin.html. A reason, if given,
-       becomes the line the sign-in page shows. */
+       becomes the line the sign-in page shows. The demo has no session to
+       end, so it clears nothing and goes to the front door. */
     signOut: async why => {
       await ready;
       leaving = true;
+      if (DEV_BEARER) { location.replace(abs(HOME)); return; }
       return clerk.signOut({ redirectUrl: signInUrl(why) });
     },
 
     /* A plain object, so screens never reach into the SDK's resources. */
     user: () => {
+      if (DEV_BEARER) return { demo: true };
       const u = clerk && clerk.user;
       if (!u) return null;
       const email = u.primaryEmailAddress ? u.primaryEmailAddress.emailAddress : null;
@@ -222,4 +270,22 @@
 
     toSignIn
   };
+
+  /* On the app shell only (core.js declares BB.screens; signin.html has no
+     screens and no session to probe with). Not before DOMContentLoaded: api.js
+     loads after this file, and in the demo `ready` is already resolved, so a
+     probe started here would run in the microtask gap between the two script
+     tags and find no BB.api. The shell has already rendered by the time the
+     probe answers, so a staff answer redraws it once to add the tab; a
+     member's answer redraws nothing. */
+  const shellLoaded = new Promise(resolve => {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", () => resolve(), { once: true });
+    } else resolve();
+  });
+  if (root.screens) {
+    shellLoaded.then(() => ready).then(isStaff).then(ok => {
+      if (ok && typeof render === "function") { root.staff = true; render(); }
+    }).catch(() => {});
+  }
 })();
