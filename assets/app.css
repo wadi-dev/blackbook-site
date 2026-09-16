@@ -900,6 +900,30 @@ select {
 .admin-row .admin-acts { flex: 0 0 auto; }
 .admin-state { font-size: 14px; padding: 6px 0; }
 
+/* One section at a time. The control is the same segmented widget Settings
+   uses, so a broker who has seen one has seen the other. */
+.admin-tabs { margin-bottom: var(--gap); }
+
+/* Three narrow fields in a row that fall to one column on a phone. Sized to
+   the list rather than the page, because the filter is a lens on the rows
+   beneath it, not a search across the app. */
+.admin-filters {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
+  margin-bottom: 14px;
+}
+.admin-filter { display: block; }
+.admin-filter .lbl {
+  display: block; margin-bottom: 6px;
+  font-size: 11px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted);
+}
+.admin-filter input { font-size: 14px; padding: 9px 12px; }
+@media (max-width: 620px) { .admin-filters { grid-template-columns: minmax(0, 1fr); } }
+
+/* A pasted address is the one thing on this screen with no space in it. */
+.admin-link { overflow-wrap: anywhere; }
+.admin-link a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+
 /* One row per seat, indented by generation. Depth is set per row as a custom
    property so the indent is arithmetic rather than a class per level, and the
    container scrolls sideways before a deep chain can widen the page. */

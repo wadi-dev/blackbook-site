@@ -1,9 +1,11 @@
 /* Admin, the broker's desk. Staff only.
 
-   Two lists, both from the live API and neither from data.js: the applicants
-   waiting at the door, with Approve and Reject on each, and the lineage of
-   every seat as a tree. The screen holds what the API sent in memory for the
-   session and writes none of it anywhere; a reload starts from nothing.
+   Three lists, all from the live API and none from data.js: the applicants
+   waiting at the door, with Approve and Reject on each, the lineage of every
+   seat as a tree, and the membership inquiries from the public form, with
+   Dismiss on each. One is shown at a time behind a segmented control. The
+   screen holds what the API sent in memory for the session and writes none
+   of it anywhere; a reload starts from nothing.
 
    The tab that reaches here is drawn only when BB.auth.isStaff() has said
    yes, and this function asks the same question again on every visit, before
@@ -20,11 +22,16 @@
   const S = {
     started: false,
     loading: false,
+    tab: "applications",
     apps: { rows: [], error: null },
     lineage: { rows: [], error: null },
-    busy: null,     /* id of the applicant whose decision is in flight */
+    inquiries: { rows: [], error: null },
+    filter: { sector: "", firm: "", title: "" },
+    busy: null,     /* id of the applicant or inquiry whose call is in flight */
     notice: null    /* the server's own sentence after a refused decision */
   };
+
+  const TABS = [["applications", "Applications"], ["lineage", "Lineage"], ["inquiries", "Inquiries"]];
 
   const isAdmin = () => BB.state.screen === "admin";
 
@@ -56,9 +63,13 @@
   async function load() {
     S.loading = true;
     if (isAdmin()) render();
+    /* All three every time, whichever tab is up: Applications reads the
+       referrer's name out of the lineage, and a switch of tab should not
+       wait on the network. */
     await Promise.all([
       fetchInto(S.apps, "/api/broker/applications"),
-      fetchInto(S.lineage, "/api/broker/lineage")
+      fetchInto(S.lineage, "/api/broker/lineage"),
+      fetchInto(S.inquiries, "/api/broker/inquiries")
     ]);
     S.loading = false;
     /* The broker may have moved on while the request was out; drawing this
@@ -84,6 +95,22 @@
     await load();
   }
 
+  /* Dismissing an inquiry is one DELETE and a reload. The row is gone from
+     the API's list whether or not the DELETE was refused, so the list is
+     reloaded either way and the server's sentence, if any, shown above it. */
+  async function dismiss(id) {
+    S.busy = id;
+    S.notice = null;
+    render();
+    try {
+      await BB.api("/api/broker/inquiries/" + id, { method: "DELETE" });
+    } catch (e) {
+      S.notice = e && e.detail ? e.detail : "Something went wrong.";
+    }
+    S.busy = null;
+    await load();
+  }
+
   /* One listener on the screen root, which outlives every render. */
   const host = document.getElementById("screen");
   if (host) host.addEventListener("click", e => {
@@ -93,7 +120,16 @@
     const id = encodeURIComponent(b.dataset.id || "");
 
     if (kind === "refresh") { S.notice = null; load(); return; }
+    if (kind === "tab") {
+      if (TABS.some(([key]) => key === b.dataset.tab)) { S.tab = b.dataset.tab; render(); }
+      return;
+    }
     if (S.busy) return;
+
+    if (kind === "dismiss") {
+      dismiss(id);
+      return;
+    }
 
     if (kind === "approve") {
       decide(id, "/api/members/" + id + "/approve");
@@ -109,6 +145,20 @@
       }
       decide(id, "/api/members/" + id + "/depart", { reason: reason.trim() });
     }
+  });
+
+  /* The filters redraw the inquiry list alone, not the screen: a full render
+     would replace the input the broker is typing into and drop the caret. */
+  if (host) host.addEventListener("input", e => {
+    const f = e.target.closest("[data-admin-filter]");
+    if (!f || !isAdmin()) return;
+    const key = f.dataset.adminFilter;
+    if (!(key in S.filter)) return;
+    S.filter[key] = f.value;
+    const list = host.querySelector("#admin-inquiry-list");
+    const count = host.querySelector("#admin-inquiry-count");
+    if (list) list.innerHTML = inquiryList();
+    if (count) count.textContent = inquiryCount();
   });
 
   /* ------------------------------------------------------- applications --- */
@@ -192,31 +242,126 @@
     return `<div class="lineage">${tree()}</div>`;
   }
 
+  /* ---------------------------------------------------------- inquiries --- */
+
+  const has = (value, needle) => String(value || "").toLowerCase().includes(needle);
+
+  /* Case-insensitive substring on each of the three filters, all of which
+     must match. An empty filter matches everything. */
+  function matching() {
+    const sector = S.filter.sector.trim().toLowerCase();
+    const firm = S.filter.firm.trim().toLowerCase();
+    const title = S.filter.title.trim().toLowerCase();
+    return S.inquiries.rows.filter(r =>
+      (!sector || has(r.sector, sector)) &&
+      (!firm || has(r.firm, firm)) &&
+      (!title || has(r.role_title, title)));
+  }
+
+  const filtering = () => Boolean(S.filter.sector.trim() || S.filter.firm.trim() || S.filter.title.trim());
+
+  function inquiryCount() {
+    const all = S.inquiries.rows.length;
+    if (!filtering()) return all + (all === 1 ? " inquiry" : " inquiries");
+    return matching().length + " of " + all + " shown";
+  }
+
+  /* The address is a link only when it is one the browser would open as a
+     page. Anything else the API may hold is shown as text, so a stored
+     string can never become a javascript: or data: href on this screen. */
+  const profileLink = url => {
+    const text = String(url || "");
+    if (!/^https?:\/\//i.test(text)) return esc(text);
+    return `<a href="${esc(text)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>`;
+  };
+
+  function inquiryList() {
+    const q = S.inquiries;
+    if (q.error) return `<div class="empty"><b>Could not load the inquiries.</b>${esc(q.error)}</div>`;
+    if (S.loading && !q.rows.length) return `<p class="admin-state muted">Loading</p>`;
+    if (!q.rows.length) return `<div class="empty">Nobody has asked.</div>`;
+    const rows = matching();
+    if (!rows.length) return `<div class="empty">Nothing matches the filters.</div>`;
+
+    const off = S.busy ? " disabled" : "";
+    return `<div class="stack">${rows.map(r => `
+      <div class="card admin-row">
+        <div class="spread" style="align-items:flex-start">
+          <div class="grow">
+            <div class="admin-name">${esc(r.full_name) || '<span class="muted">Unnamed</span>'}</div>
+            <div class="small muted">${esc(r.role_title)} at ${esc(r.firm)}</div>
+            <div class="small muted">${esc(r.sector)}</div>
+            <div class="small admin-link">${profileLink(r.linkedin_url)}</div>
+            <div class="small muted">${esc(r.email)}</div>
+            <div class="small muted" style="margin-top:6px">Asked ${esc(day(r.created_at))}, ${esc(ago(r.created_at))}</div>
+          </div>
+          <div class="row admin-acts">
+            <button class="btn sm" data-admin="dismiss" data-id="${esc(r.id)}"${off}>Dismiss</button>
+          </div>
+        </div>
+      </div>`).join("")}</div>`;
+  }
+
+  const filterField = (key, label) => `
+    <label class="admin-filter">
+      <span class="lbl">${label}</span>
+      <input type="search" data-admin-filter="${key}" value="${esc(S.filter[key])}"
+        autocomplete="off" autocapitalize="off" spellcheck="false">
+    </label>`;
+
+  const inquiries = () => `
+  <div class="admin-filters">
+    ${filterField("sector", "Sector")}
+    ${filterField("firm", "Firm")}
+    ${filterField("title", "Title")}
+  </div>
+  <div id="admin-inquiry-list">${inquiryList()}</div>`;
+
   /* --------------------------------------------------------------- page --- */
+
+  const tabs = () => `
+  <div class="segmented admin-tabs" role="group" aria-label="Section">
+    ${TABS.map(([key, label]) =>
+      `<button type="button" data-admin="tab" data-tab="${key}" aria-pressed="${S.tab === key}">${label}</button>`
+    ).join("")}
+  </div>`;
+
+  function section() {
+    if (S.tab === "lineage") return `
+  <div class="card-head">
+    <h2>Lineage</h2>
+    <span class="eyebrow">${S.lineage.rows.length} seats</span>
+  </div>
+  ${lineage()}`;
+    if (S.tab === "inquiries") return `
+  <div class="card-head">
+    <h2>Inquiries</h2>
+    <span class="eyebrow" id="admin-inquiry-count">${esc(inquiryCount())}</span>
+  </div>
+  ${inquiries()}`;
+    return `
+  <div class="card-head">
+    <h2>Applications</h2>
+    <span class="eyebrow">${S.apps.rows.length} waiting</span>
+  </div>
+  ${applications()}`;
+  }
 
   const page = () => `
   <div class="page-head">
     <div>
       <h1>Admin</h1>
-      <p class="sub">Who is waiting at the door, and who invited whom. Every
-        decision here is taken by the API and recorded against your seat.</p>
+      <p class="sub">Who is waiting at the door, who invited whom, and who has
+        asked to be let in. Every decision here is taken by the API and
+        recorded against your seat.</p>
     </div>
     <button class="btn sm" data-admin="refresh"${S.loading ? " disabled" : ""}>${S.loading ? "Loading" : "Refresh"}</button>
   </div>
 
   ${S.notice ? `<div class="admin-notice" role="alert">${esc(S.notice)}</div>` : ""}
 
-  <div class="card-head">
-    <h2>Applications</h2>
-    <span class="eyebrow">${S.apps.rows.length} waiting</span>
-  </div>
-  ${applications()}
-
-  <div class="card-head" style="margin-top:34px">
-    <h2>Lineage</h2>
-    <span class="eyebrow">${S.lineage.rows.length} seats</span>
-  </div>
-  ${lineage()}`;
+  ${tabs()}
+  ${section()}`;
 
   /* Set from the API's answer and from nothing else. */
   let confirmed = false;

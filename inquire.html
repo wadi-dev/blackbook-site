@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en-GB" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<!-- connect-src names the API origin by hand because a meta policy cannot
+     read assets/config.js. If API_BASE changes, change it here and on every
+     other page too, or the browser blocks the POST and the page reports that
+     the form could not be sent. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://clerk.blackbook.london; connect-src 'self' https://clerk.blackbook.london https://blackbook-london-api.fly.dev; img-src 'self' data: https://img.clerk.com; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-src https://challenges.cloudflare.com; worker-src 'self' blob:; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Blackbook London: Membership inquiry</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="A private network. By referral only.">
+<script src="assets/daylight.js?v=1789600000"></script>
+<link rel="stylesheet" href="assets/app.css?v=1789600000">
+<link rel="stylesheet" href="assets/landing.css?v=1789600000">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Blackbook London">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png?v=1789600000">
+<script src="assets/pwa.js?v=1789600000" defer></script>
+</head>
+<body class="lp">
+
+<header class="lp-bar">
+  <a class="wordmark" href="index.html">Blackbook<span class="geo">(London)</span></a>
+  <a class="btn sm" href="index.html">Back</a>
+</header>
+
+<main class="lp-doc lp-enter">
+  <h1>Membership inquiry.</h1>
+  <p class="lead">
+    Tell us who you are. Every inquiry is read by a person.
+  </p>
+
+  <!-- method="post" so that if assets/inquire.js has not attached its handler
+       the browser's native submission is a POST to this page (which GitHub
+       Pages answers with 405) rather than a GET carrying the details in the
+       URL. -->
+  <form id="inquiry-form" method="post" novalidate>
+    <label class="fld">
+      <span class="lbl">Full Name</span>
+      <input id="full_name" name="full_name" type="text"
+        autocomplete="name" maxlength="160" required>
+    </label>
+
+    <label class="fld">
+      <span class="lbl">Professional Email</span>
+      <input id="email" name="email" type="email" inputmode="email"
+        autocomplete="email" autocapitalize="off" spellcheck="false"
+        maxlength="320" required>
+    </label>
+
+    <div class="lp-pair">
+      <label class="fld">
+        <span class="lbl">Current Firm</span>
+        <input id="firm" name="firm" type="text"
+          autocomplete="organization" maxlength="160" required>
+      </label>
+      <label class="fld">
+        <span class="lbl">Role/Title</span>
+        <input id="role_title" name="role_title" type="text"
+          autocomplete="organization-title" maxlength="160" required>
+      </label>
+    </div>
+
+    <label class="fld">
+      <span class="lbl">Sector</span>
+      <input id="sector" name="sector" type="text"
+        autocomplete="off" maxlength="80" required>
+    </label>
+
+    <label class="fld">
+      <span class="lbl">LinkedIn Profile URL</span>
+      <input id="linkedin_url" name="linkedin_url" type="url" inputmode="url"
+        autocomplete="url" autocapitalize="off" spellcheck="false"
+        maxlength="400" required>
+    </label>
+
+    <p class="small muted lp-help lp-caveat">
+      Submitting an inquiry does not guarantee admission. Applications are reviewed manually against our institutional criteria.
+    </p>
+
+    <div class="row lp-submit">
+      <button id="submit" class="btn primary" type="submit">Send</button>
+    </div>
+    <p id="inquiry-msg" class="small lp-msg" role="status" aria-live="polite"></p>
+  </form>
+
+  <section id="received" class="lp-joined" hidden tabindex="-1">
+    <h2>Received.</h2>
+    <p>
+      Your inquiry is with us and will be reviewed manually. There is nothing
+      more to do here.
+    </p>
+  </section>
+</main>
+
+<footer class="lp-foot">
+  <div>
+    <span class="wordmark">Blackbook<span class="geo">(London)</span></span>
+    <p class="small muted">London. By referral only.</p>
+  </div>
+  <nav class="small">
+    <a href="privacy.html">Privacy</a>
+    <a href="terms.html">Terms of membership</a>
+    <a href="index.html">Home</a>
+  </nav>
+</footer>
+
+<script src="assets/config.js?v=1789600000"></script>
+<script src="assets/inquire.js?v=1789600000"></script>
+
+</body>
+</html>

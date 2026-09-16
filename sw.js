@@ -20,7 +20,7 @@
 
 "use strict";
 
-const VERSION = "2026-09-14.2";
+const VERSION = "2026-09-16.1";
 const CACHE = "blackbook-shell-" + VERSION;
 
 /* Every file the shell needs, and only those. Paths are relative to sw.js,
@@ -31,6 +31,8 @@ const CACHE = "blackbook-shell-" + VERSION;
    - enter.html and assets/join.js: the invitation door. An invitee opens it
      once, with a network, before they are a member. It is not something an
      installed app needs offline.
+   - inquire.html and assets/inquire.js: the inquiry door, for the same
+     reason.
    - anything under assets/ that is fetched at runtime rather than loaded by
      the pages (there is nothing today; keep it that way or list it here).
 

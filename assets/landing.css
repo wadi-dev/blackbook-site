@@ -154,6 +154,9 @@ a.wordmark { text-decoration: none; color: var(--text); }
 .lp-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
 
 .lp-help { margin: 8px 0 0; line-height: 1.6; }
+/* The inquiry form's caveat sits between the last field and the button, as
+   the last thing read before sending. */
+.lp-caveat { margin-top: 22px; max-width: 62ch; }
 .lp-submit { margin-top: 24px; }
 .lp-msg { margin: 14px 0 0; min-height: 1.4em; line-height: 1.5; }
 .lp-nothing { line-height: 1.65; }
