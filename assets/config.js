@@ -22,20 +22,20 @@ window.BB_CONFIG = Object.freeze({
      this file): the two change together.
      BB.api() resolves every path against this and refuses anything that
      resolves elsewhere. */
-  API_BASE: "https://REPLACE-ME.example",
+  API_BASE: "https://blackbook-london-api.fly.dev",
 
   /* Clerk Dashboard > Configure > API keys > Publishable key.
      Production keys start pk_live_, development keys pk_test_. The key
      encodes the Frontend API host, so the two values below must come from the
      same instance. */
-  CLERK_PUBLISHABLE_KEY: "pk_test_REPLACE-ME",
+  CLERK_PUBLISHABLE_KEY: "pk_test_bGFyZ2UtbGFkeWJ1Zy00MTExLmNsZXJrLmFjY291bnRzLmRldiQ",
 
   /* Clerk Dashboard > Configure > API keys > Frontend API URL, host only, no
      scheme. Production serves it from a CNAME on our own domain,
      clerk.blackbook.london (see docs/clerk.md). A development instance uses
      <slug>.clerk.accounts.dev. ClerkJS itself is loaded from this host, so it
      must also appear in the page's script-src and connect-src. */
-  CLERK_FRONTEND_API: "REPLACE-ME.clerk.accounts.dev"
+  CLERK_FRONTEND_API: "large-ladybug-4111.clerk.accounts.dev"
 
   /* DEV_BEARER, optional, and deliberately not present here.
 
