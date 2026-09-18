@@ -68,8 +68,13 @@
   }
   navigator.serviceWorker.addEventListener("controllerchange", function () {
     if (!hadController) { hadController = true; return; }
-    if (!typing()) { reloadOnce(); return; }
-    document.activeElement.addEventListener("blur", reloadOnce, { once: true });
+    /* The worker itself reloads the pages it claims (sw.js, activate). This
+       is the fallback for a browser that ignores that: a moment later, if
+       the page is still here, reload it from this side. */
+    setTimeout(function () {
+      if (!typing()) { reloadOnce(); return; }
+      document.activeElement.addEventListener("blur", reloadOnce, { once: true });
+    }, 1500);
   });
 
   var isStandalone =

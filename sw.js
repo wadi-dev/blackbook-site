@@ -20,7 +20,7 @@
 
 "use strict";
 
-const VERSION = "2026-09-18.4";
+const VERSION = "2026-09-18.5";
 const CACHE = "blackbook-shell-" + VERSION;
 
 /* Every file the shell needs, and only those. Paths are relative to sw.js,
@@ -108,6 +108,13 @@ self.addEventListener("activate", (event) => {
           .map((name) => caches.delete(name))
       ))
       .then(() => self.clients.claim())
+      /* The pages this worker has just claimed are still running the files
+         the old one served them. Reload each so they run this version's.
+         Done here rather than only in pwa.js, because a page loaded under
+         an old worker runs old pwa.js, which may know nothing of this. */
+      .then(() => self.clients.matchAll({ type: "window" }))
+      .then((wins) => Promise.all(wins.map((w) =>
+        w.navigate(w.url).catch(() => {}))))
   );
 });
 
