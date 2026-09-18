@@ -20,7 +20,7 @@
 
 "use strict";
 
-const VERSION = "2026-09-18.5";
+const VERSION = "2026-09-18.6";
 const CACHE = "blackbook-shell-" + VERSION;
 
 /* Every file the shell needs, and only those. Paths are relative to sw.js,
@@ -138,8 +138,11 @@ self.addEventListener("fetch", (event) => {
      the next open, the precached copy stands in when the network fails, and
      offline.html covers a page that was never cached. */
   if (request.mode === "navigate") {
+    /* Past the HTTP cache: the host serves pages with a ten minute max-age,
+       and a launch inside that window would otherwise get the previous
+       page. no-cache revalidates by ETag, so an unchanged page costs a 304. */
     event.respondWith(
-      fetch(request).catch(() =>
+      fetch(url.href, { cache: "no-cache", credentials: "same-origin" }).catch(() =>
         caches.open(CACHE).then((cache) =>
           cache.match(request, { ignoreSearch: true })
             .then((hit) => hit || cache.match(OFFLINE_PAGE))
