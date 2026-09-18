@@ -260,10 +260,12 @@ BB.screens.network = function () {
           <span class="lbl">Your code</span>
           <code>${esc(BB.state.invite.code)}</code>
           <span class="small muted">Valid for ${BB.state.invite.hours} hours.</span>
+          <p class="small invite-message">I am inviting you to Blackbook London. Your private access code is: ${esc(BB.state.invite.code)}. Join here: https://blackbook.london/enter.html</p>
         </div>
         <div class="row" style="flex-wrap:wrap;gap:8px">
-          <button class="btn sm primary" data-invite-wa>Send by WhatsApp</button>
-          <button class="btn sm" data-share-invite>${navigator.share ? "Share" : "Copy the message"}</button>
+          <button class="btn sm primary" data-invite-wa>Invite by WhatsApp</button>
+          <button class="btn sm" data-invite-linkedin>Invite by LinkedIn</button>
+          <button class="btn sm" data-share-invite>${navigator.share ? "Other ways" : "Copy the message"}</button>
           <button class="btn sm" data-qr>${BB.state.showQr ? "Hide the QR" : "Show as QR"}</button>
         </div>` : `
         <div class="row" style="flex-wrap:wrap;gap:8px">

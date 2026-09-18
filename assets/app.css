@@ -933,6 +933,10 @@ select {
   font-size: 11px; font-weight: 600; letter-spacing: .12em;
   text-transform: uppercase; color: var(--muted);
 }
+.invite-code .invite-message {
+  margin-top: 8px; line-height: 1.55; overflow-wrap: anywhere;
+  user-select: all; -webkit-user-select: all;
+}
 .invite-code code {
   /* One line, never broken: a code that starts with a hyphen would
      otherwise wrap after it and read as two things. 22 characters at 16px

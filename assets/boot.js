@@ -363,6 +363,26 @@
       return;
     }
 
+    /* LinkedIn has no intent that carries message text: its share endpoint
+       takes a URL alone and turns it into a public post, and a private code
+       is not for a post. So the message is put on the clipboard and
+       LinkedIn's messaging is opened, where one paste sends it. The tab is
+       opened synchronously from the tap, like WhatsApp. */
+    const liInv = e.target.closest("[data-invite-linkedin]");
+    if (liInv && BB.state.invite) {
+      const text = inviteText(BB.state.invite.code);
+      const tab = window.open("https://www.linkedin.com/messaging/", "_blank", "noopener");
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text)
+          .then(() => toast("Message copied. Paste it into a LinkedIn message."))
+          .catch(() => toast("Copy the message from the card and paste it into a LinkedIn message."));
+      } else {
+        toast("Copy the message from the card and paste it into a LinkedIn message.");
+      }
+      if (!tab) toast("LinkedIn did not open. Allow pop-ups for this site, or open LinkedIn yourself.");
+      return;
+    }
+
     const shareInv = e.target.closest("[data-share-invite]");
     if (shareInv && BB.state.invite) {
       const text = inviteText(BB.state.invite.code);

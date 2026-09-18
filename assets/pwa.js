@@ -32,11 +32,44 @@
   var wantsInstallUi = !!(script && script.hasAttribute("data-install"));
   var DISMISS_KEY = "bb-install-hint-dismissed";
 
-  navigator.serviceWorker.register("sw.js").catch(function (err) {
+  navigator.serviceWorker.register("sw.js").then(function (reg) {
+    /* A deploy is a new sw.js. The browser looks for one on its own
+       schedule, which on an installed app can mean a whole session on
+       yesterday's shell; we look on every open and every return to the
+       foreground. update() fetches sw.js past the HTTP cache. */
+    function check() { reg.update().catch(function () {}); }
+    check();
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible") check();
+    });
+  }).catch(function (err) {
     /* Registration failing means no offline shell, nothing more. The app
        still works from the network, so this is a console note, not a fault
        the member should see. */
     console.warn("Blackbook London: service worker not registered.", err);
+  });
+
+  /* When a new worker takes the page over (sw.js calls skipWaiting and
+     clients.claim), the page is still running the files the old worker
+     served. Reload once, so it runs the new ones. Not on the very first
+     install, when the page already has the network's files, and not under
+     somebody's fingers: if a field has focus, the reload waits for it to
+     leave. */
+  var hadController = !!navigator.serviceWorker.controller;
+  var reloading = false;
+  function typing() {
+    var el = document.activeElement;
+    return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+  }
+  function reloadOnce() {
+    if (reloading) return;
+    reloading = true;
+    location.reload();
+  }
+  navigator.serviceWorker.addEventListener("controllerchange", function () {
+    if (!hadController) { hadController = true; return; }
+    if (!typing()) { reloadOnce(); return; }
+    document.activeElement.addEventListener("blur", reloadOnce, { once: true });
   });
 
   var isStandalone =
