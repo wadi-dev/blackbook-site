@@ -150,6 +150,14 @@
       elements: {
         cardBox: { boxShadow: "none", border: "1px solid " + v("--line") },
         card: { boxShadow: "none" },
+        /* The page above the card already says "Sign in." and how, so the
+           card's own heading ("Sign in to Blackbook London" and "Welcome
+           back") would say it twice. These names apply to every step of the
+           flow, so the code step loses its "Check your email" line too; its
+           form still says where the code went. */
+        headerTitle: { display: "none" },
+        headerSubtitle: { display: "none" },
+        header: { display: "none" },     /* the box they sat in, or its padding stays */
         /* Membership is by invitation. The join form is elsewhere, so the
            "Don't have an account? Sign up" row has nothing to point at. */
         footerAction: { display: "none" }
