@@ -20,7 +20,7 @@
 
 "use strict";
 
-const VERSION = "2026-09-18.1";
+const VERSION = "2026-09-18.2";
 const CACHE = "blackbook-shell-" + VERSION;
 
 /* Every file the shell needs, and only those. Paths are relative to sw.js,
@@ -71,7 +71,9 @@ const SHELL = [
   "assets/icons/icon-192.png",
   "assets/icons/icon-512.png",
   "assets/icons/icon-512-maskable.png",
-  "assets/icons/apple-touch-icon-180.png"
+  "assets/icons/apple-touch-icon-180.png",
+  "assets/favicon.svg",
+  "favicon.ico"
 ];
 
 const OFFLINE_PAGE = "offline.html";
