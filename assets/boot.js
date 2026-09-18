@@ -328,46 +328,50 @@
     }
 
     /* ---- Sharing an invitation --------------------------------------------
-       Composes the message and hands it to the device's own share sheet, or
-       the clipboard on desktop. The code stays a placeholder on purpose: real
-       codes live in the founder's sheet, one per named person, and are never
-       stored in this app. Blackbook London composes; the member picks the recipient
-       in their own messenger, so no contact list ever touches us. */
-    const inviteText = () =>
-      "I'm building something: a private network "
-      + "for people who can actually do deals. Referral only, no directory, "
-      + "no feed. I get five invitations and I'm spending one on you. Your "
-      + "code is XXXX-XXXX, at https://blackbook.london. It's free while "
-      + "we're in the founding intake, and the one thing we ask for is your "
-      + "honest feedback.";
-    const inviteRemind = "Now swap XXXX-XXXX for a code from your sheet, and write their name against it.";
+       The code is real: POST /api/invitations mints one from the member's own
+       allowance and answers it once. It is held in BB.state.invite for the
+       length of the page and shown on the card, so the member can copy it or
+       hand it to the device's share sheet. Blackbook London composes the one
+       sentence; the member picks the recipient in their own messenger, so no
+       contact list ever touches us. */
+    const DOOR = "https://blackbook.london/enter.html";
+    const inviteText = code =>
+      "I am inviting you to Blackbook London. Your private access code is: "
+      + code + ". Join here: " + DOOR;
+
+    const newInv = e.target.closest("[data-new-invite]");
+    if (newInv) {
+      /* The click handler is synchronous; the request runs on its own and
+         re-renders when it lands. */
+      BB.state.inviteBusy = true; BB.state.inviteError = null; render();
+      BB.api("/api/invitations", { method: "POST" })
+        .then(minted => { BB.state.invite = minted; })
+        .catch(err => { BB.state.inviteError = err && err.detail ? err.detail : "Could not create an invitation."; })
+        .finally(() => { BB.state.inviteBusy = false; render(); });
+      return;
+    }
 
     /* WhatsApp directly, because that is where these invitations will
        actually be sent. wa.me with prefilled text opens the app with the
        message ready and the recipient still chosen by the member in
-       WhatsApp itself, so no contact list ever touches us. */
+       WhatsApp itself. Opened synchronously from the click, or the browser
+       treats it as a pop-up. */
     const waInv = e.target.closest("[data-invite-wa]");
-    if (waInv) {
-      window.open("https://wa.me/?text=" + encodeURIComponent(inviteText()),
+    if (waInv && BB.state.invite) {
+      window.open("https://wa.me/?text=" + encodeURIComponent(inviteText(BB.state.invite.code)),
         "_blank", "noopener");
-      toast("WhatsApp is opening. " + inviteRemind);
       return;
     }
 
     const shareInv = e.target.closest("[data-share-invite]");
-    if (shareInv) {
-      const text = inviteText();
-      const remind = inviteRemind;
+    if (shareInv && BB.state.invite) {
+      const text = inviteText(BB.state.invite.code);
       if (navigator.share) {
-        navigator.share({ text })
-          .then(() => toast("Shared. " + remind))
-          .catch(() => {});   /* cancelled: no toast, nothing happened */
+        navigator.share({ text }).catch(() => {});   /* cancelled: nothing happened */
       } else if (navigator.clipboard) {
         navigator.clipboard.writeText(text)
-          .then(() => toast("Copied. " + remind))
-          .catch(() => toast("Could not copy. The message is in invite-codes.md."));
-      } else {
-        toast("The message template is in invite-codes.md.");
+          .then(() => toast("Copied."))
+          .catch(() => toast("Could not copy. Select the message and copy it by hand."));
       }
       return;
     }

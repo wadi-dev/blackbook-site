@@ -208,3 +208,18 @@ a.wordmark { text-decoration: none; color: var(--text); }
   .lp-bar { padding: 20px 22px 0; }
   .lp-foot { padding: 34px 22px 52px; }
 }
+
+/* Phones (18 Sep 2026). The same rule as the app: controls at least 44px,
+   fields at 16px so iOS does not zoom on focus, and the bar's buttons on a
+   row of their own under the wordmark rather than stacked beside it. Footer
+   links get vertical padding so each is a tap-sized box. */
+@media (max-width: 768px) {
+  .lp .btn, .lp .btn.sm { min-height: 44px; }
+  .lp-enter .fld input { font-size: 16px; min-height: 48px; }
+  .lp-foot nav a { display: inline-block; padding: 12px 0; }
+  .lp-bar .wordmark { padding: 12px 0; }
+}
+@media (max-width: 520px) {
+  .lp-bar { flex-wrap: wrap; row-gap: 12px; }
+  .lp-bar .row { flex: 1 0 100%; }
+}

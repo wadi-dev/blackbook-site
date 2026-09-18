@@ -272,7 +272,10 @@
   const profileLink = url => {
     const text = String(url || "");
     if (!/^https?:\/\//i.test(text)) return esc(text);
-    return `<a href="${esc(text)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>`;
+    // Shown as linkedin.com/in/<handle>: the scheme and www are noise on a
+    // phone, where the full address broke in the middle of the handle.
+    const shown = text.replace(/^https?:\/\/(www\.)?/i, "");
+    return `<a href="${esc(text)}" target="_blank" rel="noopener noreferrer">${esc(shown)}</a>`;
   };
 
   function inquiryList() {

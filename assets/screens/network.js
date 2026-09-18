@@ -238,8 +238,7 @@ BB.screens.network = function () {
       </div>
 
       <div class="card">
-        <div class="card-head"><h2>Grow your network</h2>
-          <span class="eyebrow">Invitations ${me.invitesLeft} of ${me.invitesTotal}</span></div>
+        <div class="card-head"><h2>Grow your network</h2></div>
 
         <p class="small" style="font-weight:650;margin-bottom:4px">Someone already on Blackbook London</p>
         <p class="small muted" style="line-height:1.6;margin-bottom:10px">
@@ -253,18 +252,25 @@ BB.screens.network = function () {
 
         <p class="small" style="font-weight:650;margin-bottom:4px">Someone new</p>
         <p class="small muted" style="line-height:1.6;margin-bottom:10px">
-          Spending an invitation is the only way in. ${me.invitesLeft} of
-          ${me.invitesTotal} unspent, none outstanding: a code you have handed
-          out shows here until it is used.
+          An invitation is a code, valid for 24 hours and spent when it is
+          used. Their name stays attached to yours.
         </p>
+        ${BB.state.invite ? `
+        <div class="invite-code" aria-live="polite">
+          <span class="lbl">Your code</span>
+          <code>${esc(BB.state.invite.code)}</code>
+          <span class="small muted">Valid for ${BB.state.invite.hours} hours.</span>
+        </div>
         <div class="row" style="flex-wrap:wrap;gap:8px">
-          <button class="btn sm" data-invite-wa>Invite by WhatsApp</button>
-          <button class="btn sm" data-share-invite>Other ways</button>
+          <button class="btn sm primary" data-invite-wa>Send by WhatsApp</button>
+          <button class="btn sm" data-share-invite>${navigator.share ? "Share" : "Copy the message"}</button>
+          <button class="btn sm" data-qr>${BB.state.showQr ? "Hide the QR" : "Show as QR"}</button>
+        </div>` : `
+        <div class="row" style="flex-wrap:wrap;gap:8px">
+          <button class="btn sm primary" data-new-invite ${BB.state.inviteBusy ? "disabled" : ""}>New invitation</button>
           <button class="btn sm" data-qr>${BB.state.showQr ? "Hide the QR" : "Show as QR"}</button>
         </div>
-        <p class="small muted" style="margin-top:9px">
-          The code comes from your sheet, one per named person.
-        </p>
+        ${BB.state.inviteError ? `<p class="small" role="alert" style="margin-top:9px">${esc(BB.state.inviteError)}</p>` : ""}`}
         ${BB.state.showQr ? `
         <div style="margin-top:14px;text-align:center">
           <div style="display:inline-block;background:#fff;padding:18px;border:1px solid var(--line);border-radius:14px">

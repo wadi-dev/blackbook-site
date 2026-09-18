@@ -140,6 +140,10 @@
         colorInputBackground: v("--surface"), colorInput: v("--surface"),
         colorInputText: v("--text"), colorInputForeground: v("--text"),
         colorNeutral: v("--text"),
+        /* Text on the primary button. Without this Clerk picks white, which
+           on the dark theme's white accent is a blank bar. Both names: v5
+           and the renamed v6 key. */
+        colorTextOnPrimaryBackground: v("--surface"), colorPrimaryForeground: v("--surface"),
         colorBorder: v("--line-strong"),
         colorDanger: v("--danger"),
         borderRadius: v("--r"),
@@ -150,6 +154,10 @@
       elements: {
         cardBox: { boxShadow: "none", border: "1px solid " + v("--line") },
         card: { boxShadow: "none" },
+        /* Tap-sized, and 16px in the field so iOS does not zoom on focus. */
+        formFieldInput: { fontSize: "16px", minHeight: "44px" },
+        formButtonPrimary: { minHeight: "44px" },
+        socialButtonsBlockButton: { minHeight: "44px" },
         /* The page above the card already says "Sign in." and how, so the
            card's own heading ("Sign in to Blackbook London" and "Welcome
            back") would say it twice. These names apply to every step of the

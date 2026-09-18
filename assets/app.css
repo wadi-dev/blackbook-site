@@ -922,6 +922,39 @@ select {
 
 /* A pasted address is the one thing on this screen with no space in it. */
 .admin-link { overflow-wrap: anywhere; }
+
+/* The code a member has just minted: big enough to read out, selectable in
+   one tap, and it wraps rather than pushes the card. */
+.invite-code {
+  display: grid; gap: 4px; margin: 0 0 12px; padding: 12px 14px;
+  border: 1px solid var(--line-strong); border-radius: var(--r);
+}
+.invite-code .lbl {
+  font-size: 11px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted);
+}
+.invite-code code {
+  /* One line, never broken: a code that starts with a hyphen would
+     otherwise wrap after it and read as two things. 22 characters at 16px
+     fit a phone card with room to spare. */
+  font-size: 16px; letter-spacing: .04em; white-space: nowrap; overflow-x: auto;
+  user-select: all; -webkit-user-select: all;
+}
+
+/* Phones (18 Sep 2026). Fingers rather than pointers: every control at least
+   44px tall, and every field at 16px, below which iOS zooms the page on
+   focus. The admin card's actions drop under the text so a long line has
+   the full width, and each row's link gets a tap-sized box of its own. */
+@media (max-width: 768px) {
+  .btn, .btn.sm, .segmented button { min-height: 44px; }
+  .fld textarea, .fld select, .admin-filter input,
+  input[type="text"], input[type="search"], input[type="email"], input[type="url"] {
+    font-size: 16px; min-height: 44px;
+  }
+  .admin-row .spread { flex-wrap: wrap; }
+  .admin-row .admin-acts { flex: 1 0 100%; justify-content: flex-end; margin-top: 8px; }
+  .admin-link a { display: inline-block; padding: 12px 0; }
+}
 .admin-link a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 
 /* One row per seat, indented by generation. Depth is set per row as a custom
