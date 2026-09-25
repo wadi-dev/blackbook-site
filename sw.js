@@ -20,7 +20,7 @@
 
 "use strict";
 
-const VERSION = "2026-09-18.6";
+const VERSION = "2026-09-25.2";
 const CACHE = "blackbook-shell-" + VERSION;
 
 /* Every file the shell needs, and only those. Paths are relative to sw.js,
@@ -53,6 +53,7 @@ const SHELL = [
   "assets/app.css",
   "assets/landing.css",
   "assets/daylight.js",
+  "assets/legal.js",
   "assets/config.js",
   "assets/data.js",
   "assets/core.js",

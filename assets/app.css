@@ -127,7 +127,22 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* Phones, at the root (25 Sep 2026).
+
+   `overflow-x: clip` rather than hidden, and on both elements: hidden on
+   body alone is ignored when html has the default visible, and hidden makes
+   the element a scroll container, which breaks `position: sticky` inside it.
+   clip does neither and is what stops a page wobbling sideways.
+
+   The rest is the difference between a web page and an app: no grey flash
+   when a control is tapped, no rubber band past the end of the page, and no
+   pull to refresh in the middle of reading a policy. `overscroll-behavior`
+   on the root is the whole of that. */
+html, body { overflow-x: clip; }
+html { overscroll-behavior-y: none; }
+body { -webkit-tap-highlight-color: transparent; }
 
 body {
   background: var(--bg);
@@ -814,7 +829,14 @@ select {
 /* The one signature motion: a member's tile flies into their profile.
    Everything else in the system is instant. */
 
-.detail { position: fixed; inset: 0; z-index: 80; background: var(--bg); overflow-y: auto; }
+.detail {
+  position: fixed; inset: 0; z-index: 80; background: var(--bg);
+  overflow-y: auto;
+  /* Its own scroller, so the page behind does not take over at the end of
+     it, and its last line clears the home indicator. */
+  overscroll-behavior: contain;
+  padding-bottom: env(safe-area-inset-bottom);
+}
 .detail-bar {
   position: sticky; top: 0; z-index: 5;
   background: var(--surface); border-bottom: 1px solid var(--line);
@@ -844,7 +866,8 @@ select {
 /* ------------------------------------------------------------- toasts --- */
 
 .toast {
-  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(8px);
+  position: fixed; left: 50%; bottom: calc(26px + env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(8px);
   background: var(--text); color: var(--surface);
   border-radius: 9px; padding: 11px 18px; font-size: 13.5px; font-weight: 600;
   box-shadow: var(--lift); opacity: 0; pointer-events: none;
@@ -852,6 +875,12 @@ select {
   z-index: 300;
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* On a phone the tab bar owns the bottom of the screen, so the toast sits
+   above it rather than on it. */
+@media (max-width: 860px) {
+  .toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
+}
 
 /* -------------------------------------------------------------- misc ---- */
 
