@@ -418,6 +418,7 @@ body.dragging, body.dragging * { user-select: none !important; }
 
   .tabbar {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 70;
+    padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);
     display: flex; align-items: stretch;
     background: var(--surface);
     border-top: 1px solid var(--line);
