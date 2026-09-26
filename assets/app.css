@@ -144,6 +144,20 @@ html, body { overflow-x: clip; }
 html { overscroll-behavior-y: none; }
 body { -webkit-tap-highlight-color: transparent; }
 
+/* Taking the browser's grey flash away leaves a phone with no answer to a
+   tap, and there was not one :active rule in the site to replace it. So one
+   is given here, deliberately: every control dips a little while a finger is
+   on it. Pointer devices are unaffected, because hover already answers there,
+   and a reduced-motion preference turns the movement off below. */
+@media (hover: none) {
+  .btn:active, button:active, summary:active,
+  .tabbar button:active, .lp-foot nav a:active, .admin-link a:active {
+    opacity: .62;
+    transition: opacity .06s var(--ease);
+  }
+  .btn:active { transform: scale(.985); }
+}
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -594,6 +608,7 @@ body.no-scroll { overflow: hidden; }
 .menu.anim-fwd  { animation: menu-fwd  .2s var(--ease); }
 .menu.anim-back { animation: menu-back .2s var(--ease); }
 @media (prefers-reduced-motion: reduce) {
+  .btn:active { transform: none; }
   .menu.anim-fwd, .menu.anim-back { animation: none; }
 }
 .tag {
