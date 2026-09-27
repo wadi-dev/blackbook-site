@@ -25,7 +25,11 @@
 
 /* ------------------------------------------------------------------ hero -- */
 
-.lp-hero { max-width: 940px; margin: 0 auto; padding: 92px 26px 76px; }
+.lp-hero {
+  max-width: 940px; margin: 0 auto; padding: 92px 26px 76px;
+  padding-left: max(26px, env(safe-area-inset-left));
+  padding-right: max(26px, env(safe-area-inset-right));
+}
 
 .lp-hero h1 {
   font-family: var(--font-display);
@@ -47,6 +51,8 @@
 .lp-band {
   max-width: 940px; margin: 0 auto;
   padding: 62px 26px;
+  padding-left: max(26px, env(safe-area-inset-left));
+  padding-right: max(26px, env(safe-area-inset-right));
 }
 .lp-band .eyebrow { display: block; margin-bottom: 26px; }
 
@@ -296,7 +302,7 @@ a.wordmark { text-decoration: none; color: var(--text); }
    fields at 16px so iOS does not zoom on focus, and the bar's buttons on a
    row of their own under the wordmark rather than stacked beside it. Footer
    links get vertical padding so each is a tap-sized box. */
-@media (max-width: 768px) {
+@media (pointer: coarse) {
   .lp .btn, .lp .btn.sm { min-height: 44px; }
   .lp-enter .fld input { font-size: 16px; min-height: 48px; }
   .lp-foot nav a { display: inline-block; padding: 12px 0; }

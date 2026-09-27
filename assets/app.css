@@ -141,7 +141,10 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
    pull to refresh in the middle of reading a policy. `overscroll-behavior`
    on the root is the whole of that. */
 html, body { overflow-x: clip; }
-html { overscroll-behavior-y: none; }
+/* The app, not the documents: a member in the app should not bounce past
+   the end of a list, but a reader of the privacy policy keeps pull to
+   refresh. app.html and console.html carry the class. */
+html.app-shell { overscroll-behavior-y: none; }
 body { -webkit-tap-highlight-color: transparent; }
 
 /* Taking the browser's grey flash away leaves a phone with no answer to a
@@ -237,6 +240,8 @@ strong, b { font-weight: 650; }
   max-width: var(--shell); margin: 0 auto;
   display: flex; align-items: center; gap: 28px;
   padding: 14px 24px;
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
 }
 /* The geographic tag beside the name: the same text, same colour, same
    spacing, at half the size, one space to the right on the same line. It is
@@ -477,6 +482,8 @@ body.dragging, body.dragging * { user-select: none !important; }
   border-top: 1px solid var(--line);
   border-radius: 20px 20px 0 0;
   padding: 6px 18px calc(14px + env(safe-area-inset-bottom));
+  padding-left: max(18px, env(safe-area-inset-left));
+  padding-right: max(18px, env(safe-area-inset-right));
   animation: sheet-up .3s var(--ease);
 }
 .sheet .grab {
@@ -498,11 +505,15 @@ body.dragging, body.dragging * { user-select: none !important; }
 }
 @keyframes sheet-up { from { transform: translateY(100%); } }
 
-body.no-scroll { overflow: hidden; }
+html.no-scroll, body.no-scroll { overflow: hidden; }
 
 /* -------------------------------------------------------------- layout --- */
 
-.shell { max-width: var(--shell); margin: 0 auto; padding: 30px 24px 80px; }
+.shell {
+  max-width: var(--shell); margin: 0 auto; padding: 30px 24px 80px;
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
+}
 
 .page-head {
   display: flex; align-items: flex-end; justify-content: space-between;
@@ -860,6 +871,8 @@ select {
 .detail-bar .inner {
   max-width: var(--shell); margin: 0 auto;
   display: flex; align-items: center; gap: 16px; padding: 14px 24px;
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
 }
 .flip {
   position: fixed; z-index: 200; pointer-events: none;
@@ -994,15 +1007,20 @@ select {
    44px tall, and every field at 16px, below which iOS zooms the page on
    focus. The admin card's actions drop under the text so a long line has
    the full width, and each row's link gets a tap-sized box of its own. */
-@media (max-width: 768px) {
+@media (pointer: coarse) {
+  /* Keyed on the finger, not the width: an iPhone in landscape is wider than
+     any phone breakpoint and still has fingers. */
   .btn, .btn.sm, .segmented button { min-height: 44px; }
+  input, textarea, select { font-size: 16px; }
   .fld textarea, .fld select, .admin-filter input,
   input[type="text"], input[type="search"], input[type="email"], input[type="url"] {
-    font-size: 16px; min-height: 44px;
+    min-height: 44px;
   }
+  .admin-link a { display: inline-block; padding: 12px 0; }
+}
+@media (max-width: 768px) {
   .admin-row .spread { flex-wrap: wrap; }
   .admin-row .admin-acts { flex: 1 0 100%; justify-content: flex-end; margin-top: 8px; }
-  .admin-link a { display: inline-block; padding: 12px 0; }
 }
 .admin-link a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 

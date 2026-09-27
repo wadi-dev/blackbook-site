@@ -188,6 +188,10 @@ function setSheet(open) {
   const s = document.getElementById("sheet");
   s.classList.toggle("open", open);
   s.hidden = !open;
+  /* On the root as well as the body: html carries overflow-x: clip, and an
+     html whose overflow is not visible stops passing the body's overflow
+     to the viewport, so a lock on body alone no longer holds the page. */
+  document.documentElement.classList.toggle("no-scroll", open);
   document.body.classList.toggle("no-scroll", open);
   /* The tab bar holds the More button itself, so it is inerted after focus has
      already moved into the sheet. */

@@ -191,7 +191,12 @@
       clerk = await loadClerk();
       await clerk.load({ signInUrl: abs(SIGNIN) });
     } catch (e) {
-      notice(e.message);
+      /* The error names hosts and config files, which is for us. A member
+         needs to know whether it is their connection or ours. */
+      console.error("BB.auth:", e);
+      notice(navigator.onLine === false
+        ? "No connection. Blackbook London needs a network to sign you in."
+        : "Sign-in could not start. Try again in a moment.");
       throw e;
     }
 
