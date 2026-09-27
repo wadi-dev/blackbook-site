@@ -164,6 +164,22 @@
      while the page itself is light or dark. If the zone cannot be read the
      attribute stays "auto" and the stylesheet's media rule takes over, which
      is the pre-existing behaviour. */
+  /* The browser's own chrome (Android's status bar, Safari's tab tint)
+     is coloured from <meta name="theme-color">. It has to follow the same
+     decision as the page, which is this file's, not the phone's dark-mode
+     setting. Each page's tag names its own top colour for each theme, because
+     the app's sticky bar is a surface colour and the public pages show the
+     page background. The tag sits above this script in every page, so it
+     exists on the first run, before anything paints. */
+  function themeColour(applied) {
+    const tags = document.querySelectorAll('meta[name="theme-color"]');
+    for (let i = 0; i < tags.length; i++) {
+      const t = tags[i];
+      const colour = applied === "dark" ? t.getAttribute("data-dark") : t.getAttribute("data-light");
+      if (colour) t.setAttribute("content", colour);
+    }
+  }
+
   function apply() {
     const root = document.documentElement;
     const pref = preference();
@@ -175,6 +191,7 @@
     const before = root.dataset.theme;
     root.dataset.themePreference = pref;
     root.dataset.theme = applied;
+    themeColour(applied);
     /* The network map resolves its colours in JS, so it needs to hear when
        the theme flips under it. Only a real change is announced. */
     if (before !== applied && typeof CustomEvent === "function" && document.dispatchEvent) {
