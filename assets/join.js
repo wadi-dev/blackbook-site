@@ -23,7 +23,8 @@
     last_name:  document.getElementById("last_name"),
     email:      document.getElementById("email"),
     role_title: document.getElementById("role_title"),
-    firm:       document.getElementById("firm")
+    firm:       document.getElementById("firm"),
+    linkedin_url: document.getElementById("linkedin_url")
   };
 
   // The backend's 422 names fields by their JSON key. These are the words the
@@ -31,7 +32,8 @@
   // typed) never reaches the page.
   const LABELS = {
     code: "invitation code", first_name: "first name", last_name: "last name",
-    email: "email address", role_title: "role", firm: "firm"
+    email: "email address", role_title: "role", firm: "firm",
+    linkedin_url: "LinkedIn profile URL"
   };
 
   const UNREACHABLE = "The door could not be reached. Please try again in a moment.";
@@ -118,6 +120,27 @@
     fields.code.focus();
   });
 
+  /* The inquiry page's parser, the same rule as the server's: see
+     assets/inquire.js for why each part is there. Optional here, so an empty
+     field is fine and anything else must be a profile. */
+  const HANDLE = /^\/in\/([A-Za-z0-9][A-Za-z0-9._%-]{1,99})\/?$/;
+  const profileUrl = raw => {
+    const text = raw.trim();
+    if (!text || /\s/.test(text)) return null;
+    let url;
+    try {
+      url = new URL(/^https?:\/\//i.test(text) ? text : "https://" + text);
+    } catch (_) {
+      return null;
+    }
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    const host = url.hostname.toLowerCase();
+    if (host !== "linkedin.com" && !host.endsWith(".linkedin.com")) return null;
+    const m = HANDLE.exec(url.pathname);
+    if (!m) return null;
+    return "https://www.linkedin.com/in/" + m[1];
+  };
+
   const validate = () => {
     const missing = (unlocked ? ["code", "first_name", "last_name", "email"] : ["code"])
       .filter(name => !fields[name].value.trim());
@@ -127,6 +150,10 @@
     }
     if (unlocked && !fields.email.validity.valid) {
       fail("Please check your email address.", ["email"]);
+      return false;
+    }
+    if (unlocked && fields.linkedin_url.value.trim() && !profileUrl(fields.linkedin_url.value)) {
+      fail("Please check your LinkedIn profile URL. It should look like linkedin.com/in/your-name.", ["linkedin_url"]);
       return false;
     }
     return true;
@@ -232,8 +259,10 @@
       };
       const role = fields.role_title.value.trim();
       const firm = fields.firm.value.trim();
+      const linkedin = profileUrl(fields.linkedin_url.value);
       if (role) body.role_title = role;
       if (firm) body.firm = firm;
+      if (linkedin) body.linkedin_url = linkedin;
       result = await send("/api/join", body);
     }
 
