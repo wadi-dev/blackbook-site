@@ -237,7 +237,7 @@ BB.screens.network = function () {
         })() : ""}
       </div>
 
-      <div class="card">
+      <div class="card" id="invite">
         <div class="card-head"><h2>Grow your network</h2></div>
 
         <p class="small" style="font-weight:650;margin-bottom:4px">Someone already on Blackbook London</p>

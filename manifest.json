@@ -1,7 +1,7 @@
 {
   "id": "blackbook",
   "name": "Blackbook London",
-  "short_name": "Blackbook London",
+  "short_name": "Blackbook",
   "description": "A private network. By referral only.",
   "lang": "en-GB",
   "start_url": "app.html",
@@ -27,6 +27,34 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Invitations",
+      "short_name": "Invite",
+      "description": "Make an invitation and send it",
+      "url": "app.html#invite",
+      "icons": [
+        {
+          "src": "assets/icons/shortcut-invite-96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "short_name": "Admin",
+      "description": "Applications, lineage and inquiries",
+      "url": "app.html#admin",
+      "icons": [
+        {
+          "src": "assets/icons/shortcut-admin-96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

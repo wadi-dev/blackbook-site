@@ -18,8 +18,42 @@
      has already covered the page with its notice, so nothing is drawn behind
      it. Without auth.js (a page that never loaded it) the shell renders at
      once, as before. */
-  if (BB.auth) BB.auth.ready().then(() => render(), () => {});
-  else render();
+  /* A link can name a screen: the home-screen shortcuts open app.html#admin
+     and app.html#invite. Only these names are honoured. #admin needs no
+     check here, because the Admin screen asks the server itself and sends
+     anyone who is not staff back to Home.
+
+     Followed twice over. On load, before the first paint, so the page opens
+     where the link points rather than flashing Home first. And while the page
+     is open, because a shortcut used while the app is already running only
+     changes the part after the #, which reloads nothing. The hash is cleared
+     once followed, so a reload does not land there again. */
+  const LINKED = { admin: "admin", invite: "network", network: "network",
+                   asks: "asks", gives: "gives", members: "members",
+                   introductions: "introductions" };
+  const target = () => LINKED[(location.hash || "").slice(1)];
+  const settle = name => {
+    if (name === "invite" || location.hash === "#invite") {
+      const card = document.getElementById("invite");
+      if (card) card.scrollIntoView({ block: "start" });
+    }
+    if (history.replaceState) {
+      history.replaceState(null, "", location.pathname + location.search);
+    }
+  };
+  const first = target();
+  if (first) BB.state.screen = first;
+  const landed = () => { if (first) settle(); };
+  window.addEventListener("hashchange", () => {
+    const name = target();
+    if (!name) return;
+    const wasInvite = location.hash === "#invite";
+    go(name);
+    settle(wasInvite ? "invite" : null);
+  });
+
+  if (BB.auth) BB.auth.ready().then(() => { render(); landed(); }, () => {});
+  else { render(); landed(); }
 
   /* Delegated once, at the document level, so it survives every re-render. */
   document.addEventListener("click", e => {
