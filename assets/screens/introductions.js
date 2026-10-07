@@ -1,127 +1,137 @@
 /* Introductions, the double opt-in, made visible.
 
-   The state is shown as a state, not hidden behind a status word. Irreversible
-   actions announce themselves before you take them. Declining is silent and
-   costless, and the person who asked is never told it was a decline, only
-   that it did not proceed. */
+   Every card is a row of GET /api/introductions: its state, which side of it
+   the member is on, when it was asked for, and, once released, the other
+   side's name, email address and LinkedIn. Before the release a row names
+   nobody, so until then a card carries no name, no seat and no firm.
 
-const STATE_LABEL = {
-  released:  ["Released", "done"],
-  checking:  ["Checking with them", ""],
-  awaiting:  ["Awaiting you", "wait"],
-  declined:  ["Did not proceed", "wait"]
+   The state is shown as a state, not hidden behind a status word, with one
+   exception that is the point of the design: the asker reads "Checking with
+   them" from the moment they ask until we release it or it ends. They are
+   never shown that the other side said yes and it is with us, so a decline,
+   a withdrawal and our own stop all end the same way, as did not proceed.
+
+   Declining is one silent step. Accept, decline and withdraw go to the
+   server (boot.js), and so do the answers to met in person, whose requests
+   are GET /api/ties/requests. */
+
+const INTRO_LIVE = ["requested", "side_a_accepted", "side_b_accepted", "broker_review"];
+
+/* "Asked 7 Oct 2026". A date that will not parse is left out rather than
+   drawn as "Invalid Date". */
+const introAsked = iso => {
+  const t = Date.parse(iso);
+  return Number.isNaN(t) ? "" : "Asked " + shortDate.format(t);
 };
 
-const DIRECTION_LABEL = {
-  requested: "you requested",
-  offered:   "you offered",
-  incoming:  "requested you"
+/* The LinkedIn address is a link only when it is one the browser would open
+   as a page, so a stored string can never become a javascript: href here.
+   Shown without the scheme and www, as Admin shows it. */
+const introLinkedIn = url => {
+  const text = String(url || "");
+  if (!/^https:\/\//i.test(text)) return esc(text);
+  const shown = text.replace(/^https:\/\/(www\.)?/i, "");
+  return `<a href="${esc(text)}" target="_blank" rel="noopener noreferrer">${esc(shown)}</a>`;
 };
-
-/* The actions on an incoming request. Three, not two, and the order is the
-   argument: Accept, then the silent decline, then the decline that says why.
-
-   Silence stays the default and stays one tap. The reasoned decline exists
-   because being turned down in dead silence lands badly with exactly the
-   people this network selects for. It opens a second step rather than a
-   dialog: canned lines first, and a short optional note that is passed on BY
-   US, unattributed, so a decline still never carries the decliner's voice. */
-function declineBlock(i) {
-  const open = BB.state.declining === i.id;
-  const picked = BB.state.declineReason;
-
-  if (!open) return `
-    <div class="row" style="margin-top:14px;flex-wrap:wrap">
-      <button class="btn primary sm" data-intro-accept="${esc(i.id)}">Accept</button>
-      <button class="btn sm" data-intro-decline="${esc(i.id)}">Decline, silently</button>
-      <button class="btn sm quiet" data-intro-reason="${esc(i.id)}">Decline with a reason</button>
-    </div>
-    <p class="small muted" style="margin-top:10px;line-height:1.6">
-      Neither of you has seen the other's name. Accepting releases both at once,
-      and cannot be taken back. Declining silently tells them only that it did
-      not proceed. A reason, if you give one, is passed on by us without your
-      name.
-    </p>`;
-
-  return `
-    <div style="margin-top:14px">
-      <p class="small" style="font-weight:650;margin-bottom:10px">
-        What should we tell them?</p>
-      <div class="row" style="flex-wrap:wrap;gap:8px">
-        ${Object.keys(DB.declineReasons).map(k => `
-          <button class="pill${picked === k ? " solid" : " plain"}"
-            data-decline-pick="${k}" aria-pressed="${picked === k}"
-            >${esc(DB.declineReasons[k])}</button>`).join("")}
-      </div>
-      <label class="fld">
-        <span class="lbl">In your own words (optional, passed on as ours)</span>
-        <textarea id="decline-note" rows="2" maxlength="200"
-          placeholder="One or two lines. We relay it without your name, and we will not relay a negotiation."></textarea>
-      </label>
-      <div class="row" style="margin-top:14px">
-        <button class="btn primary sm" data-decline-send="${esc(i.id)}">Decline and pass it on</button>
-        <button class="btn sm quiet" data-decline-cancel>Back</button>
-      </div>
-      <p class="small muted" style="margin-top:10px;line-height:1.6">
-        They learn the reason and nothing else. Not your name, not your seat,
-        and not that a person wrote the note.
-      </p>
-    </div>`;
-}
 
 BB.screens.introductions = function () {
   const rows = API.intros();
-  const live     = rows.filter(i => i.state !== "declined" && i.state !== "released");
+  const met = API.tieRequests();
+  const live     = rows.filter(i => INTRO_LIVE.includes(i.state));
   const released = rows.filter(i => i.state === "released");
-  const stopped  = rows.filter(i => i.state === "declined");
+  const ended    = rows.filter(i => !INTRO_LIVE.includes(i.state) && i.state !== "released");
+
+  /* A seat with nothing on it, for every card before the release, on both
+     sides, because neither side has been shown the other. */
+  const veiled = (title, sub) => `
+    <div class="row" style="gap:11px">
+      <div class="tile veiled" aria-hidden="true" style="width:36px;height:36px">··</div>
+      <span style="text-align:left">
+        <span style="font-weight:650;font-size:14px;display:block">${esc(title)}</span>
+        <span class="small muted">${esc(sub)}</span>
+      </span>
+    </div>`;
+
+  const note = text => `
+    <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.55">${text}</p>`;
 
   const card = i => {
-    const [label, cls] = STATE_LABEL[i.state] || ["", ""];
-    const m = i.member;
+    const asker = i.side === "asker";
+    const when = introAsked(i.requested_at);
+    let head, label, cls = "", body;
 
-    /* Double opt-in cuts both ways. Until you have accepted, an incoming
-       request shows their SEAT, not their name, exactly as yours shows to
-       them. Showing their identity while telling you yours is protected would
-       make the promise look one-sided, and it is not. */
-    const veiled = i.direction === "incoming" && i.state === "awaiting";
-
-    const head = veiled ? `
-      <div class="row" style="gap:11px">
-        <div class="tile veiled" aria-hidden="true" style="width:36px;height:36px">··</div>
-        <span style="text-align:left">
-          <span style="font-weight:650;font-size:14px;display:block">${esc(m.role)}</span>
-          <span class="small muted">${esc(m.sector)} · ${esc(m.city)} · ${esc(i.when)}</span>
-        </span>
-      </div>` : `
-      <button class="row" data-member="${esc(m.id)}" style="gap:11px">
-        ${tile(m, 36)}
-        <span style="text-align:left">
-          <span style="font-weight:650;font-size:14px;display:block">${nameOf(m, true)}</span>
-          <span class="small muted">${esc(DIRECTION_LABEL[i.direction])} · ${esc(i.when)}</span>
-        </span>
-      </button>`;
+    if (i.state === "released" && i.contact) {
+      const c = i.contact;
+      head = `
+        <div class="row" style="gap:11px">
+          ${tile(splitName(c.name), 36)}
+          <span style="text-align:left">
+            <span style="font-weight:650;font-size:14px;display:block">${esc(c.name)}</span>
+            <span class="small muted">${esc(when)}</span>
+          </span>
+        </div>`;
+      label = "Released"; cls = "done";
+      body = `
+        <div class="small" style="margin-top:12px;line-height:1.7">
+          <div style="overflow-wrap:anywhere">${esc(c.email)}</div>
+          ${c.linkedin_url ? `<div class="admin-link">${introLinkedIn(c.linkedin_url)}</div>` : ""}
+        </div>
+        ${note(`Both of you said yes and we approved it. The conversation is yours
+          from here, on your own channels. These details are shown here for 30 days.`)}`;
+    } else if (i.state === "released") {
+      /* Released, and the details taken away since: a block either way, or
+         one of them has left. Which of those it was is nobody's business, so
+         it is not said. */
+      head = veiled("An introduction", when);
+      label = "Released"; cls = "done";
+      body = note("Their details are no longer shown here.");
+    } else if (INTRO_LIVE.includes(i.state) && asker) {
+      /* The same card wherever it has got to, Withdraw included. Once it has
+         reached us the server refuses the withdrawal and boot.js says to tell
+         us instead, which is what the terms say. */
+      head = veiled("Your request", when);
+      label = "Checking with them";
+      body = `
+        ${note(`We are checking with them. They do not see your name, and nothing
+          is released until they say yes and we approve it.`)}
+        <div class="row" style="margin-top:14px;flex-wrap:wrap">
+          <button class="btn sm" data-intro="withdraw" data-id="${esc(i.id)}">Withdraw</button>
+        </div>
+        <p class="small muted" style="margin-top:10px;line-height:1.6">
+          You can withdraw until it reaches us for approval. After that, tell us
+          and it will not proceed. Either way they see only that it did not proceed.
+        </p>`;
+    } else if (i.state === "requested") {
+      head = veiled("A request to you", when);
+      label = "Awaiting you"; cls = "wait";
+      body = `
+        <div class="row" style="margin-top:14px;flex-wrap:wrap">
+          <button class="btn primary sm" data-intro="accept" data-id="${esc(i.id)}">Accept</button>
+          <button class="btn sm" data-intro="decline" data-id="${esc(i.id)}">Decline, silently</button>
+        </div>
+        <p class="small muted" style="margin-top:10px;line-height:1.6">
+          Neither of you has seen the other's name. Accepting sends it to us, and
+          nothing is released until we approve it. Then you each get the other's
+          name, email address and LinkedIn. Declining tells them only that it did
+          not proceed.
+        </p>`;
+    } else if (INTRO_LIVE.includes(i.state)) {
+      head = veiled("A request to you", when);
+      label = "Checking";
+      body = note("You said yes. It is with us now, and nothing is released until we approve it.");
+    } else {
+      /* One ending for all of them: declined, stopped, and withdrawn, which
+         the target already reads as did not proceed and the asker knows
+         about because they did it. */
+      head = veiled(asker ? "Your request" : "A request to you", when);
+      label = "Did not proceed"; cls = "wait";
+      body = note("It did not go ahead. No reason is given either way.");
+    }
 
     return `
     <div class="card">
       <div class="spread">${head}<span class="state ${cls}">${esc(label)}</span></div>
-      <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.55">${esc(i.note)}</p>
-      ${veiled ? declineBlock(i) : ""}
-      ${i.state === "checking" ? `
-        <div class="row" style="margin-top:14px">
-          <button class="btn sm" data-withdraw="${esc(i.id)}">Withdraw</button>
-          <span class="small muted">They never saw your name, so they learn nothing.</span>
-        </div>` : ""}
-      ${/* Released is the only state where reporting makes sense: it is the
-            only state in which the two of you have each other's details and a
-            conversation has happened off this system. Before release there is
-            nothing to report, because nothing has passed between you. */
-        i.state === "released" ? `
-        <div style="margin-top:14px">${reportBlock(m)}</div>` : ""}
-      ${i.state === "declined" && (i.declineReason || i.declineNote) ? `
-        <div class="veil" style="margin-top:12px">
-          ${i.declineReason ? `<b>${esc(DB.declineReasons[i.declineReason])}.</b> ` : ""}
-          ${i.declineNote ? esc(i.declineNote) : ""}
-        </div>` : ""}
+      ${body}
     </div>`;
   };
 
@@ -129,70 +139,32 @@ BB.screens.introductions = function () {
   <div class="page-head">
     <div>
       <h1>Introductions</h1>
-      <p class="sub">Nothing is sent and no identity released until both sides accept.
-        A decline is silent and costs nothing.</p>
+      <p class="sub">No name or contact detail is released until both of you say yes
+        and we approve it. A decline is silent and costs nothing.</p>
     </div>
   </div>
 
-  ${API.connectRequests().length ? `
+  ${met.length ? `
     <div class="card-head"><h2>Met in person</h2>
-      <span class="eyebrow">${API.connectRequests().length}</span></div>
+      <span class="eyebrow">${met.length}</span></div>
     <div class="stack" style="margin-bottom:34px">
-      ${API.connectRequests().map(cr => `
+      ${met.map(r => `
       <div class="card">
         <div class="spread">
-          <button class="row" data-member="${esc(cr.member.id)}" style="gap:11px">
-            ${tile(cr.member, 36)}
-            <span style="text-align:left">
-              <span style="font-weight:650;font-size:14px;display:block">${nameOf(cr.member, true)}</span>
-              <span class="small muted">says you have met · ${esc(cr.when)}</span>
-            </span>
-          </button>
+          ${veiled(r.handle || [r.role_title, r.sector].filter(Boolean).join(", ") || "A member",
+                   ["says you have met", r.city].filter(Boolean).join(" · "))}
           <span class="state">Connection</span>
         </div>
         <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.55">
-          Confirming connects you on Blackbook London. You each then set, privately,
-          how far you would go for the other, and neither is ever shown the
-          other's answer.
+          Confirming connects you, and you each see the other's name, role and firm.
         </p>
-        <div class="row" style="margin-top:14px">
-          <button class="btn primary sm" data-connect-accept="${esc(cr.member.id)}">We have met</button>
-          <button class="btn sm" data-connect-decline="${esc(cr.member.id)}">Decline, silently</button>
+        <div class="row" style="margin-top:14px;flex-wrap:wrap">
+          <button class="btn primary sm" data-met="confirm" data-id="${esc(r.id)}">We have met</button>
+          <button class="btn sm" data-met="decline" data-id="${esc(r.id)}">Decline, silently</button>
         </div>
         <p class="small muted" style="margin-top:10px;line-height:1.6">
-          A decline is silent. ${esc(cr.member.first)} is not told, and nothing
-          is recorded.
-        </p>
-      </div>`).join("")}
-    </div>` : ""}
-
-  ${API.circleInvites().length ? `
-    <div class="card-head"><h2>Close circle</h2>
-      <span class="eyebrow">${API.circleInvites().length}</span></div>
-    <div class="stack" style="margin-bottom:34px">
-      ${API.circleInvites().map(ci => `
-      <div class="card">
-        <div class="spread">
-          <button class="row" data-member="${esc(ci.member.id)}" style="gap:11px">
-            ${tile(ci.member, 36)}
-            <span style="text-align:left">
-              <span style="font-weight:650;font-size:14px;display:block">${nameOf(ci.member, true)}</span>
-              <span class="small muted">invites you to their close circle · ${esc(ci.when)}</span>
-            </span>
-          </button>
-          <span class="state">Close circle</span>
-        </div>
-        <p style="margin-top:12px;font-size:14px;color:var(--muted);line-height:1.55">
-          Accepting shares your private profiles with each other. Nothing else
-          changes, and nobody else is told.
-        </p>
-        <div class="row" style="margin-top:14px">
-          <button class="btn primary sm" data-circle-accept="${esc(ci.member.id)}">Accept</button>
-          <button class="btn sm" data-circle-decline="${esc(ci.member.id)}">Decline, silently</button>
-        </div>
-        <p class="small muted" style="margin-top:10px;line-height:1.6">
-          A decline is silent. ${esc(ci.member.first)} is not told, keeps no
-          record, and nothing about your standing changes.
+          A decline is silent. They are not told, and the request does not come
+          back. The decline is noted on your record, not theirs.
         </p>
       </div>`).join("")}
     </div>` : ""}
@@ -210,83 +182,16 @@ BB.screens.introductions = function () {
       <span class="eyebrow">${released.length}</span></div>
     <div class="stack">${released.map(card).join("")}</div>` : ""}
 
-  ${stopped.length ? `
+  ${ended.length ? `
     <div class="card-head" style="margin-top:34px"><h2>Did not proceed</h2>
-      <span class="eyebrow">${stopped.length}</span></div>
-    <div class="stack">${stopped.map(card).join("")}</div>` : ""}
+      <span class="eyebrow">${ended.length}</span></div>
+    <div class="stack">${ended.map(card).join("")}</div>` : ""}
 
   <div class="veil" style="margin-top:26px">
-    <b>Records of an introduction are deleted after 30 days.</b> In this industry the
-    fact that two people spoke can matter as much as what they said, so we do not
-    keep a browsable history of who met whom.
+    <b>The record of an introduction is deleted 30 days after it ends,</b> whether it
+    went ahead, was declined or was withdrawn. In this industry the fact that two
+    people spoke can matter as much as what they said, so we do not keep a
+    browsable history of who met whom.
   </div>`;
 };
-
-/* Messages, the private thread with the broker.
-
-   Note what this is not: there is no member-to-member messaging in Blackbook London.
-   Once an introduction is released the conversation moves to the members' own
-   channels. A banker discussing a live deal in an unapproved app creates an
-   off-channel communications problem for their employer, and their compliance
-   team would block us for it. */
-
-BB.screens.messages = function () {
-  const threads = API.threads();
-  const open = BB.state.thread || (threads[0] && threads[0].about);
-  const active = threads.find(t => t.about === open);
-
-  return `
-  <div class="page-head">
-    <div>
-      <h1>Messages</h1>
-      <p class="sub">Threads with us about an introduction, never with another member.
-        Once one is made, the conversation is yours and happens on your own channels.</p>
-    </div>
-  </div>
-
-  <div class="cols b">
-    ${active ? `
-    <div class="card">
-      <div class="row" style="margin-bottom:4px">
-        <span class="grow">
-          <span style="font-weight:650;font-size:15px;display:block">${esc(active.subject)}</span>
-          <span class="small muted">${esc(active.when)}</span>
-        </span>
-        <span class="state ${active.state === "released" ? "done" : active.state === "declined" ? "wait" : ""}">
-          ${esc(STATE_LABEL[active.state] ? STATE_LABEL[active.state][0] : active.state)}</span>
-      </div>
-      <hr class="rule">
-      <div class="bubbles">
-        ${active.messages.map(msg => `
-          <div class="bubble ${msg.from === "me" ? "mine" : "theirs"}">
-            ${msg.from === "us" ? '<span class="eyebrow" style="display:block;margin-bottom:4px">Blackbook London</span>' : ""}
-            ${esc(msg.text)}
-          </div>`).join("")}
-      </div>
-      ${active.state === "declined" ? `
-        <p class="small muted" style="margin-top:16px">This thread is closed.</p>` : `
-        <div class="row" style="margin-top:18px">
-          <input type="text" class="grow" id="reply" placeholder="Reply to us"
-            autocomplete="off" data-about="${esc(active.about)}">
-          <button class="btn primary" data-send="${esc(active.about)}">Send</button>
-        </div>`}
-    </div>` : `<div class="empty"><b>No messages yet.</b>We write when an introduction needs something from you.</div>`}
-
-    <div class="card">
-      <div class="card-head"><h2>Threads</h2></div>
-      ${threads.map(t => `
-        <button class="prow" data-thread="${esc(t.about)}">
-          ${tile(t.member, 34)}
-          <span class="grow">
-            <span class="who">${esc(t.subject)}</span>
-            <span class="sub">${esc(t.messages[t.messages.length - 1].text.slice(0, 44))}…</span>
-          </span>
-          ${t.unread ? '<span class="dots" style="flex-shrink:0"><i class="on"></i></span>' : ""}
-        </button>`).join("")}
-      <p class="small muted" style="margin-top:14px;line-height:1.6">
-        There is no member-to-member messaging here, on purpose. Your firm almost
-        certainly requires business conversations to happen on approved channels.
-      </p>
-    </div>
-  </div>`;
-};
+BB.screens.introductions.needs = ["introductions", "tieRequests"];

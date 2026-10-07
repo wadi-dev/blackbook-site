@@ -73,7 +73,7 @@ function toast(msg) {
 
 const NAV = [
   ["home", "Home"], ["network", "Network"], ["asks", "Asks"], ["gives", "Gives"],
-  ["members", "Members"], ["introductions", "Introductions"], ["messages", "Messages"]
+  ["members", "Members"], ["introductions", "Introductions"]
 ];
 /* Admin is not in NAV. It is added at the far right of the topbar, and at
    the foot of the More sheet on a phone, once the API has answered that the
@@ -102,33 +102,32 @@ const ICON = {
    Seven destinations do not fit across 375px, five is the width at which a
    label is still readable. The split is by frequency, not importance: Home,
    Asks, Members and Introductions are the daily loop; Network is maintenance,
-   Gives is set-and-forget, Settings is rare. Those three sit behind More.
-
-   Messages is the awkward one. It is low-volume but it carries a badge, so
-   More carries that badge too, nothing that is waiting for you is ever
-   invisible because it happens to live one level down. */
+   Gives is set-and-forget, Settings is rare. Those three sit behind More. */
 
 const TABS = [
   ["home", "Home", "home"], ["asks", "Asks", "asks"], ["members", "Members", "members"],
   ["introductions", "Intros", "intros"], ["more", "More", "more"]
 ];
 const SHEET = [
-  ["network", "Network"], ["gives", "Gives"], ["messages", "Messages"], ["settings", "Settings"]
+  ["network", "Network"], ["gives", "Gives"], ["settings", "Settings"]
 ];
 const svg = (paths, size) =>
   `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" ` +
   `stroke-linecap="round" stroke-linejoin="round"${size ? ` style="width:${size}px;height:${size}px"` : ""}>${paths}</svg>`;
 
 function renderChrome() {
-  const unread = DB.threads.filter(t => t.unread).length;
-  const waiting = DB.intros.filter(i => i.state === "awaiting").length;
+  /* Requests waiting on this member's answer, counted from whatever the
+     store holds. Never fetched here, so the badge never holds up a render;
+     boot.js asks for the list behind the first one. */
+  const waiting = (BB.store.peek("introductions") || [])
+    .filter(i => i.side === "target" && i.state === "requested").length;
 
   document.getElementById("topbar").innerHTML = `
     <div class="topbar-inner">
       <span class="wordmark">Blackbook<span class="geo">(London)</span></span>
       <nav class="nav" aria-label="Main">
         ${withAdmin(NAV).map(([k, label]) => {
-          const n = k === "messages" ? unread : k === "introductions" ? waiting : 0;
+          const n = k === "introductions" ? waiting : 0;
           return `<button data-go="${k}" aria-current="${BB.state.screen === k}">${label}` +
             (n ? `<span class="count">${n}</span>` : "") + `</button>`;
         }).join("")}
@@ -143,19 +142,16 @@ function renderChrome() {
 
   document.getElementById("tabbar").innerHTML = TABS.map(([k, label, icon]) => {
     const current = k === "more" ? onSheet : BB.state.screen === k;
-    const n = k === "introductions" ? waiting : k === "more" ? unread : 0;
+    const n = k === "introductions" ? waiting : 0;
     return `<button ${k === "more" ? 'data-sheet="open"' : `data-go="${k}"`}
       aria-current="${current}"${k === "more" ? ` aria-expanded="${BB.sheetOpen === true}"` : ""}>
       ${svg(ICON[icon])}<span class="lab">${label}</span>` +
       (n ? `<span class="count">${n}</span>` : "") + `</button>`;
   }).join("");
 
-  document.querySelector("#sheet .sheet-list").innerHTML = sheet.map(([k, label]) => {
-    const n = k === "messages" ? unread : 0;
-    return `<button class="item" data-go="${k}" aria-current="${BB.state.screen === k}">
-      <span class="grow">${label}</span>` +
-      (n ? `<span class="count">${n}</span>` : "") + `</button>`;
-  }).join("");
+  document.querySelector("#sheet .sheet-list").innerHTML = sheet.map(([k, label]) =>
+    `<button class="item" data-go="${k}" aria-current="${BB.state.screen === k}">
+      <span class="grow">${label}</span></button>`).join("");
 }
 
 /* While an overlay is up, everything behind it is inert: not focusable, not
@@ -584,10 +580,6 @@ function act(kind, btn) {
     toast(kind === "help"
       ? "Offer sent. They decide whether to see your name. Undo is there if that was a slip."
       : "Requested. Nothing is released until they accept. Undo is there if that was a slip.");
-  } else if (kind === "accept") {
-    toast("Accepted. Identities released to both sides.");
-  } else if (kind === "decline") {
-    toast("Declined, silently. They are not told.");
   }
 }
 

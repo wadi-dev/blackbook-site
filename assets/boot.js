@@ -50,8 +50,20 @@
     settle(wasInvite ? "invite" : null);
   });
 
-  if (BB.auth) BB.auth.ready().then(() => { render(); landed(); }, () => {});
-  else { render(); landed(); }
+  /* The Intros badge reads what the store holds and never waits for it, so
+     me and introductions are asked for here, behind the first render. When
+     they land the chrome is drawn again, and its top bar wired as wire()
+     wires it. Not while the More sheet is open: a redraw would take the
+     focus out of its list, and the next render draws the badge anyway. */
+  const background = () => BB.store.need(["me", "introductions"]).then(() => {
+    if (BB.sheetOpen) return;
+    renderChrome();
+    document.querySelectorAll(".topbar [data-go]").forEach(b =>
+      b.addEventListener("click", () => go(b.dataset.go)));
+  }, () => {});
+
+  if (BB.auth) BB.auth.ready().then(() => { render(); landed(); background(); }, () => {});
+  else { render(); landed(); background(); }
 
   /* The server's sentence for a refused write. A 422 arrives as a list of
      field errors, kept on serverDetail (api.js), and the first one's message
@@ -183,6 +195,55 @@
     }, err => toast(said(err, "Your membership could not be found. Reload and try again.")));
   }
 
+  /* An introduction, addressed by its id: accept, decline or withdraw, each a
+     POST with no body. Accept and withdraw answer the row as it now stands,
+     which goes straight into the store's list. Decline answers nothing, and
+     the row is marked did_not_proceed, which is what the server now says to
+     the decliner too. One write per introduction at a time, the toast waits
+     for the server, and the list is read again whatever it answered. A 404
+     is every refusal the API makes here, so each move has its own sentence
+     for it and the body is never shown. */
+  const INTRO_SAID = {
+    accept: ["Accepted. It is with us now, and nothing is released until we approve it.",
+             "That request is no longer open."],
+    decline: ["Declined, silently. They are told only that it did not proceed.",
+              "That request is no longer open."],
+    withdraw: ["Withdrawn. They see only that it did not proceed.",
+               "It can no longer be withdrawn here. Tell us and it will not proceed."]
+  };
+  function sendIntro(what, id) {
+    if (!INTRO_SAID[what]) return;
+    const [done, gone] = INTRO_SAID[what];
+    const ended = list => list.map(i => i.id === id ? { ...i, state: "did_not_proceed" } : i);
+    const sent = BB.store.write(id, () => BB.api("/api/introductions/"
+      + encodeURIComponent(id) + "/" + what, { method: "POST" }),
+      { update: { introductions: what === "decline" ? ended : putRow },
+        invalidate: ["introductions"] });
+    if (!sent) return;
+    const redraw = () => { if (BB.state.screen === "introductions") render(); };
+    sent.then(() => { toast(done); redraw(); }, err => { toast(said(err, gone)); redraw(); });
+  }
+
+  /* Met in person, addressed by the asker's id: confirm or decline, each a
+     POST with no body. Either way the request leaves the list as soon as the
+     server agrees. A confirmation makes a connection, so the connections are
+     read again too. */
+  function sendMet(what, id) {
+    if (what !== "confirm" && what !== "decline") return;
+    const sent = BB.store.write(id, () => BB.api("/api/ties/requests/"
+      + encodeURIComponent(id) + "/" + what, { method: "POST" }),
+      { update: { tieRequests: list => list.filter(r => r.id !== id) },
+        invalidate: what === "confirm" ? ["tieRequests", "ties"] : ["tieRequests"] });
+    if (!sent) return;
+    const redraw = () => { if (BB.state.screen === "introductions") render(); };
+    sent.then(() => {
+      toast(what === "confirm"
+        ? "Connected. You each now see the other's name, role and firm."
+        : "Declined, silently. They are not told.");
+      redraw();
+    }, err => { toast(said(err, "That request is no longer open.")); redraw(); });
+  }
+
   /* Delegated once, at the document level, so it survives every re-render. */
   document.addEventListener("click", e => {
     /* An open menu closes on any click that lands outside it. The click is
@@ -237,58 +298,9 @@
        store again for whatever the screen still lacks. */
     if (e.target.closest("[data-store-retry]")) { render(); return; }
 
-    /* ---- Introductions: accept, and the two kinds of decline -------------- */
-    const ia = e.target.closest("[data-intro-accept]");
-    if (ia) {
-      API.acceptIntro(ia.dataset.introAccept);
-      toast("Accepted. Identities released to both sides.");
-      render(); return;
-    }
-    const idec = e.target.closest("[data-intro-decline]");
-    if (idec) {
-      API.declineIntro(idec.dataset.introDecline);
-      toast("Declined, silently. They are told only that it did not proceed.");
-      render(); return;
-    }
-    const ireason = e.target.closest("[data-intro-reason]");
-    if (ireason) {
-      BB.state.declining = ireason.dataset.introReason;
-      BB.state.declineReason = null;
-      render(); return;
-    }
-    const dpick = e.target.closest("[data-decline-pick]");
-    if (dpick) {
-      /* Preserve anything already typed across the re-render, or choosing a
-         line would silently eat the member's own words. */
-      const box = document.getElementById("decline-note");
-      BB.state.declineNoteDraft = box ? box.value : "";
-      BB.state.declineReason =
-        BB.state.declineReason === dpick.dataset.declinePick ? null : dpick.dataset.declinePick;
-      render();
-      const again = document.getElementById("decline-note");
-      if (again) again.value = BB.state.declineNoteDraft;
-      return;
-    }
-    const dsend = e.target.closest("[data-decline-send]");
-    if (dsend) {
-      const box = document.getElementById("decline-note");
-      const words = box ? box.value.trim() : "";
-      if (!BB.state.declineReason && !words) {
-        toast("Pick a line, or write one. A reasoned decline needs a reason.");
-        return;
-      }
-      API.declineIntro(dsend.dataset.declineSend, BB.state.declineReason, words);
-      BB.state.declining = null; BB.state.declineReason = null;
-      BB.state.declineNoteDraft = "";
-      toast("Declined. We pass the reason on without your name.");
-      render(); return;
-    }
-    const dcancel = e.target.closest("[data-decline-cancel]");
-    if (dcancel) {
-      BB.state.declining = null; BB.state.declineReason = null;
-      BB.state.declineNoteDraft = "";
-      render(); return;
-    }
+    /* ---- Introductions: accept, decline and withdraw ---------------------- */
+    const intro = e.target.closest("[data-intro]");
+    if (intro) { sendIntro(intro.dataset.intro, intro.dataset.id); return; }
 
     /* The tab bar and the More sheet live outside #screen, so wire() never
        reaches them. They are handled here, before anything else, because the
@@ -313,13 +325,6 @@
       if (group.id === "set-theme") setTheme(seg.dataset.v);
       else setDensity(seg.dataset.v);
       return;
-    }
-
-    const thread = e.target.closest("[data-thread]");
-    if (thread) {
-      BB.state.thread = thread.dataset.thread;
-      API.markRead(thread.dataset.thread);
-      render(); return;
     }
 
     /* ---- Your ask -------------------------------------------------------- */
@@ -348,24 +353,6 @@
     if (pass) {
       API.passOn(pass.dataset.pass);
       toast("Passed one hop into your network. They see the ask, never who asked.");
-      render(); return;
-    }
-
-    /* ---- Withdrawing an introduction ------------------------------------- */
-    const wd = e.target.closest("[data-withdraw]");
-    if (wd) {
-      API.withdrawIntro(wd.dataset.withdraw);
-      toast("Withdrawn. They were never told it existed.");
-      render(); return;
-    }
-
-    /* ---- Replying to us --------------------------------------------------- */
-    const send = e.target.closest("[data-send]");
-    if (send) {
-      const box = document.getElementById("reply");
-      if (!box.value.trim()) { toast("Nothing to send."); return; }
-      API.reply(send.dataset.send, box.value);
-      toast("Sent to us. This thread is never visible to another member.");
       render(); return;
     }
 
@@ -400,19 +387,8 @@
       if (!refreshDetail()) render();
       return;
     }
-    const cca = e.target.closest("[data-connect-accept]");
-    if (cca) {
-      const who = API.member(cca.dataset.connectAccept);
-      API.acceptConnect(cca.dataset.connectAccept);
-      toast(`Connected. Now set, privately, how far you would go for ${who.first}. They are never shown it.`);
-      render(); return;
-    }
-    const ccd = e.target.closest("[data-connect-decline]");
-    if (ccd) {
-      API.declineConnect(ccd.dataset.connectDecline);
-      toast("Declined, silently. They are not told, and nothing is recorded.");
-      render(); return;
-    }
+    const met = e.target.closest("[data-met]");
+    if (met) { sendMet(met.dataset.met, met.dataset.id); return; }
 
     /* ---- The close circle -------------------------------------------------- */
     const cinv = e.target.closest("[data-circle-invite]");
@@ -421,19 +397,6 @@
       if (API.inviteCircle(cinv.dataset.circleInvite)) {
         toast(`Invited. If ${who.first} accepts, you will each see the other's private profile.`);
       }
-      render(); return;
-    }
-    const cacc = e.target.closest("[data-circle-accept]");
-    if (cacc) {
-      const who = API.member(cacc.dataset.circleAccept);
-      API.acceptCircleInvite(cacc.dataset.circleAccept);
-      toast(`Done. You and ${who.first} now see each other's private profiles.`);
-      render(); return;
-    }
-    const cdec = e.target.closest("[data-circle-decline]");
-    if (cdec) {
-      API.declineCircleInvite(cdec.dataset.circleDecline);
-      toast("Declined, silently. They are not told, and nothing changes.");
       render(); return;
     }
 

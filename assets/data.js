@@ -83,9 +83,6 @@ DB.blocks = [];
    receive is a compliment. */
 DB.circle = [];
 
-/* Invitations to a circle, pending this member's answer. */
-DB.circleInvites = [];
-
 /* Circle invitations this member has sent. Held so the UI can say "invited"
    instead of offering the button twice. Never shown to the other side as
    anything but the single invitation itself. */
@@ -95,8 +92,9 @@ DB.circleOut = [];
    introduction. Two members meet at a dinner, one says so on the platform,
    the other confirms, and only then does a tie exist. Mutual by construction,
    silent on decline, and it carries no strength: each side sets their own
-   vouch privately afterwards, exactly as with any other connection. */
-DB.connectRequests = [];
+   vouch privately afterwards, exactly as with any other connection.
+   The requests waiting on this member come from the API (GET
+   /api/ties/requests); these are the ones this member has sent. */
 DB.connectOut = [];
 
 /* Asks this member has passed one hop into their own network. */
@@ -112,23 +110,6 @@ DB.passed = {};
    reported is telling its first ten members something untrue about itself. */
 DB.reports = [];
 
-/* Reasons a member can attach to a decline, if they choose to attach anything.
-
-   The default decline stays silent, and the promise stays intact: declining
-   costs nothing and carries no signal. This list exists for the member who
-   WANTS the other side to hear something, because being turned down in dead
-   silence lands badly with exactly the seniority this network selects for.
-
-   Every line is written to close a door gently rather than open a negotiation:
-   no "maybe later", no invitation to rephrase and retry. The reason travels
-   through us, never with a name attached. */
-DB.declineReasons = {
-  timing:   "Not the right time for me",
-  conflict: "Too close to a live matter",
-  fit:      "Not something I can genuinely help with",
-  capacity: "Fully committed at the moment"
-};
-
 /* The four grounds, worded as the member would say them rather than as the
    terms say them. Each maps to an obligation in section 4 that section 8 can
    act on, so a report is never an opinion about someone being unpleasant. */
@@ -138,18 +119,6 @@ DB.reportReasons = {
   identity:   "Not who they said they were",
   confidence: "Repeated something from here outside"
 };
-
-/* ------------------------------------------------------- introductions --- */
-
-DB.intros = [];
-
-/* Threads are between the member and US, about a specific introduction.
-   There is no member-to-member messaging in Blackbook London: once an introduction is
-   released the conversation moves to the members' own channels. A banker
-   discussing a live deal in an unapproved app creates an off-channel
-   communications problem for their employer, and their compliance team would
-   block us for it. */
-DB.threads = [];
 
 /* ------------------------------------------------------------- lexicon --- */
 
@@ -314,13 +283,19 @@ const API = {
     role: c.role_title, firm: c.firm, city: c.city, sector: c.sector
   })),
 
+  /* The member's introductions, both sides, as AskerView: id, state, side,
+     requested_at, and contact once released. Oldest first, as served. */
+  intros: () => BB.store.peek("introductions") || [],
+
+  /* Met-in-person requests waiting on this member, as the veiled seat
+     (PeerView): handle, sector and city, and no name and no date. */
+  tieRequests: () => BB.store.peek("tieRequests") || [],
+
   /* ---- Mock ------------------------------------------------------------ */
 
   member:    id => DB.members.find(m => m.id === id),
   members:   () => DB.members.filter(m => m.id !== DB.me),
   ties:      () => DB.ties.map(t => ({ ...t, member: API.member(t.id) })),
-  intros:    () => DB.intros.map(i => ({ ...i, member: API.member(i.with) })),
-  threads:   () => DB.threads.map(t => ({ ...t, member: API.member(t.about) })),
 
   /* Asks from other members, with whether the viewer can actually give it. */
   asks() {
@@ -375,53 +350,6 @@ const API = {
   },
   hasPassed: id => !!DB.passed[id],
 
-  acceptIntro(id) {
-    const i = DB.intros.find(x => x.id === id);
-    if (!i || i.state !== "awaiting") return null;
-    i.state = "released";
-    i.note = "Both sides accepted. Contact details exchanged. We are out of the way from here.";
-    return i;
-  },
-
-  /* Declining. reason and note are both optional, and their absence IS the
-     default: a silent decline stores nothing and says nothing.
-
-     When a reason is given, it is relayed by us, unattributed. The free-text
-     note is capped short and framed as passed on in our voice, because a
-     paragraph in the decliner's own words is a fingerprint, and the promise
-     that a decline carries no signal includes not signalling who wrote it. */
-  declineIntro(id, reason, note) {
-    const i = DB.intros.find(x => x.id === id);
-    if (!i || i.state !== "awaiting") return null;
-    i.state = "declined";
-    if (reason && DB.declineReasons[reason]) i.declineReason = reason;
-    if (note && note.trim()) i.declineNote = note.trim().slice(0, 200);
-    i.note = (i.declineReason || i.declineNote)
-      ? "You declined. The reason below was passed on by us, without your name."
-      : "Neither side was told anything further, and no reason is given either way.";
-    return i;
-  },
-
-  withdrawIntro(id) {
-    const i = DB.intros.find(x => x.id === id);
-    if (!i) return null;
-    i.state = "declined";
-    i.note = "You withdrew this before it reached them. They were never told it existed.";
-    return i;
-  },
-
-  reply(about, text) {
-    const t = DB.threads.find(x => x.about === about);
-    if (!t || !text.trim()) return null;
-    t.messages.push({ from: "me", text: text.trim() });
-    t.unread = false;
-    return t;
-  },
-  markRead(about) {
-    const t = DB.threads.find(x => x.about === about);
-    if (t) t.unread = false;
-  },
-
   block(firm) {
     const name = firm.trim();
     if (!name || DB.blocks.includes(name)) return false;
@@ -433,52 +361,27 @@ const API = {
     if (i > -1) DB.blocks.splice(i, 1);
   },
 
-  /* Met in person. The request only says "we have met"; the tie forms when
-     the other side agrees that is true. Strength starts at the floor because
-     a vouch is earned, not granted by a handshake, and each side sets their
-     own privately afterwards. */
+  /* Met in person, from a profile. The request only says "we have met"; the
+     tie forms when the other side agrees that is true. Answering one is live
+     (boot.js); asking is still the mock until the profile is connected. */
   isTied: id => DB.ties.some(t => t.id === id),
-  connectRequests: () => DB.connectRequests.map(r => ({ ...r, member: API.member(r.from) })),
   hasRequestedConnect: id => DB.connectOut.includes(id),
   requestConnect(id) {
     if (!API.member(id) || API.isTied(id) || API.hasRequestedConnect(id)) return false;
     DB.connectOut.push(id);
     return true;
   },
-  acceptConnect(id) {
-    const i = DB.connectRequests.findIndex(r => r.from === id);
-    if (i < 0 || API.isTied(id)) return false;
-    DB.connectRequests.splice(i, 1);
-    DB.ties.push({ id, strength: 1, since: "2026" });
-    return true;
-  },
-  declineConnect(id) {
-    const i = DB.connectRequests.findIndex(r => r.from === id);
-    if (i > -1) DB.connectRequests.splice(i, 1);
-  },
 
   /* The close circle. Mutual by construction: nothing is shared until both
      have said yes, and a decline is silent, so the inviter simply never
-     learns. The decline leaves no record at all, which is the same promise
-     an introduction makes. */
+     learns. It is not decided yet, so nothing here reaches the API, and the
+     Introductions screen no longer offers invitations to answer. */
   inCircle: id => DB.circle.includes(id),
-  circleInvites: () => DB.circleInvites.map(i => ({ ...i, member: API.member(i.from) })),
   hasInvited: id => DB.circleOut.includes(id),
   inviteCircle(id) {
     if (!API.member(id) || API.inCircle(id) || API.hasInvited(id)) return false;
     DB.circleOut.push(id);
     return true;
-  },
-  acceptCircleInvite(id) {
-    const i = DB.circleInvites.findIndex(x => x.from === id);
-    if (i < 0) return false;
-    DB.circleInvites.splice(i, 1);
-    if (!DB.circle.includes(id)) DB.circle.push(id);
-    return true;
-  },
-  declineCircleInvite(id) {
-    const i = DB.circleInvites.findIndex(x => x.from === id);
-    if (i > -1) DB.circleInvites.splice(i, 1);
   },
 
   /* Reporting conduct.
