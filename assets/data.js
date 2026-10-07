@@ -26,8 +26,6 @@ DB.members = [
     gives: [
       { text: "Introductions to MDs and directors at bulge-bracket banks in London",
         type: "door", confidence: 5 },
-      { text: "A route into Bell & Colvill, a McLaren and Lotus dealer group in Surrey",
-        type: "door", confidence: 6 },
       { text: "How to get a UK data-protection position right before launch rather than after",
         type: "judgment", confidence: 5 }
     ],
