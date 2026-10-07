@@ -50,7 +50,7 @@ you who they are: is this something you would actually be glad to do?
 If not, say no and that is the end of it. They are not told it was asked, and
 it costs you nothing.
 
-Wadi`;
+Blackbook London`;
 }
 
 function draftToAsker(m) {
@@ -63,7 +63,7 @@ Before I put you together, are you happy for me to release your name to them?
 
 If not, no explanation needed, and they are told only that it did not proceed.
 
-Wadi`;
+Blackbook London`;
 }
 
 function draftRelease(m) {
@@ -78,7 +78,7 @@ ${m.giver.first} can open: ${m.give.text}
 I am out of the way from here. Anything after this is between you two, on your
 own channels.
 
-Wadi`;
+Blackbook London`;
 }
 
 /* --------------------------------------------------------------- render -- */
@@ -92,8 +92,8 @@ function stat() {
   const open = worth.filter(m => !S[mid(m)] || S[mid(m)].state === "open").length;
 
   /* The projection is the point of this row. If an introduction takes you 20
-     minutes and you have 2.5 hours an evening, you can make about seven a
-     night. That number, not the interface, is what caps the membership.
+     minutes and you have a 2.5 hour session, you can make about seven in
+     one. That number, not the interface, is what caps the membership.
 
      Two guards, both from watching it produce nonsense. A median under a
      minute means the clock was started and stopped in the same breath rather
@@ -110,7 +110,7 @@ function stat() {
     <div><b>${made.length}</b><span>Made</span></div>
     <div><b>${enough ? Math.round(median) + "m" : "–"}</b>
       <span>Median to make${mins.length && !enough ? ` · ${mins.length} of 3` : ""}</span></div>
-    <div><b>${perEvening ?? "–"}</b><span>Per evening at 2.5h</span></div>
+    <div><b>${perEvening ?? "–"}</b><span>Per 2.5h session</span></div>
   </div>`;
 }
 

@@ -165,11 +165,11 @@ BB.screens.home = function () {
         <div class="card-head"><h2>You are early, on purpose</h2>
           <span class="eyebrow">Founding cohort</span></div>
         <p class="small" style="line-height:1.65;color:var(--muted)">
-          Everything here works. What we want from you, and the reason the
-          founding cohort's fee is waived, is your judgment: what is wrong, what
-          is missing, and what you would never use. When the network reaches its
-          full first intake, the founding label goes and the standard annual fee
-          applies, with 30 days' notice, exactly as the terms say.
+          What we want from you, and the reason Founding Members pay nothing
+          during the closed beta, is your judgment: what is wrong, what is
+          missing, and what you would never use. If a subscription fee is ever
+          introduced, you get at least 30 days' notice first, exactly as the
+          terms say.
         </p>
         <div class="row" style="margin-top:14px">
           <button class="btn sm" data-go="messages">Tell us what is wrong</button>

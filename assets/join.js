@@ -24,7 +24,8 @@
     email:      document.getElementById("email"),
     role_title: document.getElementById("role_title"),
     firm:       document.getElementById("firm"),
-    linkedin_url: document.getElementById("linkedin_url")
+    linkedin_url: document.getElementById("linkedin_url"),
+    accept:     document.getElementById("accept")
   };
 
   // The backend's 422 names fields by their JSON key. These are the words the
@@ -33,8 +34,12 @@
   const LABELS = {
     code: "invitation code", first_name: "first name", last_name: "last name",
     email: "email address", role_title: "role", firm: "firm",
-    linkedin_url: "LinkedIn profile URL"
+    linkedin_url: "LinkedIn profile URL", accept: "acceptance of the terms"
   };
+
+  // The two versions are not fields anybody types. They come off the form,
+  // with the box, so a 422 on either is reported against the box.
+  const SENT_WITH = { terms_version: "accept", privacy_version: "accept" };
 
   const UNREACHABLE = "The door could not be reached. Please try again in a moment.";
   const REFUSED     = "That invitation is not valid.";
@@ -156,6 +161,10 @@
       fail("Please check your LinkedIn profile URL. It should look like linkedin.com/in/your-name.", ["linkedin_url"]);
       return false;
     }
+    if (unlocked && !fields.accept.checked) {
+      fail("Please tick the box to accept the Terms of Membership.", ["accept"]);
+      return false;
+    }
     return true;
   };
 
@@ -183,7 +192,8 @@
     const items = body && Array.isArray(body.detail) ? body.detail : [];
     for (const item of items) {
       const loc = item && Array.isArray(item.loc) ? item.loc : [];
-      const name = loc[0] === "body" ? loc[1] : loc[0];
+      const sent = loc[0] === "body" ? loc[1] : loc[0];
+      const name = SENT_WITH[sent] || sent;
       if (typeof name === "string" && LABELS[name]) names.add(name);
     }
     return [...names];
@@ -255,7 +265,11 @@
         code: fields.code.value.trim(),
         email: fields.email.value.trim(),
         first_name: fields.first_name.value.trim(),
-        last_name: fields.last_name.value.trim()
+        last_name: fields.last_name.value.trim(),
+        // What the page showed beside the box, written into the form by
+        // build-legal.py. The API stores the pair with its own clock.
+        terms_version: form.dataset.termsVersion,
+        privacy_version: form.dataset.privacyVersion
       };
       const role = fields.role_title.value.trim();
       const firm = fields.firm.value.trim();

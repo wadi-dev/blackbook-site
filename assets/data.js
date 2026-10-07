@@ -14,12 +14,12 @@ const DB = {};
 /* ---------------------------------------------------------------- people -- */
 
 DB.members = [
-  /* The founder. The only real person, and the only record. Everything he
-     has not written himself is absent rather than invented: no ask until
-     Wadi writes one in the product, no achievements against a real name. */
-  { id: "wg", first: "Wadi", last: "Hussain", initials: "WH",
+  /* The founder. The only real person, and the only record, shown under the
+     trading name. Everything not written in the product is absent rather than
+     invented: no ask until the founder writes one, no achievements. */
+  { id: "founder", first: "Blackbook", last: "London", initials: "BL",
     role: "Founder", firm: "Blackbook London", city: "London",
-    sector: "Corporate Leadership", sub: "Chief Operating Officer",
+    sector: "Corporate Leadership", sub: "Founder",
     founder: true, founding: false, verified: "30 Jul 2026",
     invitesTotal: 5, invitesLeft: 5, referredBy: "Founder",
     ask: "", askType: "door", askAge: 0, askOptIns: 0, askOpen: false,
@@ -32,7 +32,7 @@ DB.members = [
     achievements: [] }
 ];
 
-DB.me = "wg";
+DB.me = "founder";
 
 /* ------------------------------------------------------------- the graph -- */
 /* Declared strength, 1–7. Held privately: never shown to the person rated. */

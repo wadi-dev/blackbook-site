@@ -264,6 +264,18 @@ a.wordmark { text-decoration: none; color: var(--text); }
   padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r);
 }
 .lp-notice a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+/* The join form's acceptance box. The sentence is the label, so all of it is
+   the tap target, and it wraps under itself rather than under the box. */
+.lp-accept {
+  display: flex; gap: 12px; align-items: flex-start;
+  margin-top: 22px; max-width: 62ch; line-height: 1.6; cursor: pointer;
+}
+.lp-accept input {
+  flex: none; width: 18px; height: 18px; margin: 3px 0 0;
+  accent-color: var(--accent);
+}
+.lp-accept input[aria-invalid="true"] { outline: 2px solid var(--danger); outline-offset: 2px; }
+.lp-accept a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 .lp-submit { margin-top: 24px; }
 .lp-msg { margin: 14px 0 0; min-height: 1.4em; line-height: 1.5; }
 .lp-nothing { line-height: 1.65; }

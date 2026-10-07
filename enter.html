@@ -17,18 +17,18 @@
      white status bar over a dark page. daylight.js sets this from the same
      decision that sets the page, so it sits above that script. -->
 <meta name="theme-color" content="#FFFFFF" data-light="#FFFFFF" data-dark="#0A0A0A">
-<script src="assets/daylight.js?v=1791381844"></script>
-<link rel="stylesheet" href="assets/app.css?v=1791381844">
-<link rel="stylesheet" href="assets/landing.css?v=1791381844">
+<script src="assets/daylight.js?v=1791386077"></script>
+<link rel="stylesheet" href="assets/app.css?v=1791386077">
+<link rel="stylesheet" href="assets/landing.css?v=1791386077">
 <link rel="manifest" href="manifest.json">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Blackbook London">
-<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png?v=1791381844">
-<link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=1791381844">
-<link rel="alternate icon" href="favicon.ico?v=1791381844">
-<script src="assets/pwa.js?v=1791381844" defer></script>
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png?v=1791386077">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=1791386077">
+<link rel="alternate icon" href="favicon.ico?v=1791386077">
+<script src="assets/pwa.js?v=1791386077" defer></script>
 </head>
 <body class="lp">
 
@@ -48,8 +48,12 @@
   <!-- method="post" so that if assets/join.js has not attached its handler the
        browser's native submission is a POST to this page (which GitHub Pages
        answers with 405) rather than a GET carrying the invitation code and the
-       applicant's details in the URL. -->
-  <form id="join-form" method="post" novalidate>
+       applicant's details in the URL.
+       The two version attributes are written by build-legal.py from the
+       documents' own status lines, as are the two numbers in the acceptance
+       label below. Edit the documents and rerun it, never these by hand. -->
+  <form id="join-form" method="post" novalidate
+    data-terms-version="1.2" data-privacy-version="1.3">
     <label class="fld">
       <span class="lbl">Invitation code</span>
       <input id="code" name="code" type="text" inputmode="text"
@@ -113,6 +117,33 @@
       email address.
     </p>
 
+    <!-- What a member is held to. assets/join.js will not send step two until
+         this is ticked, and sends the form's two versions with it; the API
+         keeps them with the time the join was written. The links open a new
+         tab so reading them does not lose what has been typed here. -->
+    <label class="lp-accept">
+      <input id="accept" name="accept" type="checkbox" required>
+      <span>
+        I accept the <a href="terms.html" target="_blank" rel="noopener">Terms
+        of Membership</a> (version <span data-version-of="terms">1.2</span>) and
+        have read the <a href="privacy.html" target="_blank" rel="noopener">Privacy
+        Policy</a> (version <span data-version-of="privacy">1.3</span>).
+      </span>
+    </label>
+
+    <!-- The notice owed at the point of collection, as on inquire.html: who is
+         asking, why, on what basis, and where the periods are written down. -->
+    <p class="small muted lp-help lp-notice">
+      What happens to this: the Founder, trading as Blackbook London, is the
+      data controller. We use these details to consider your application and,
+      if you are admitted, to run your membership. The legal basis for running
+      your membership is the contract between us, and for considering your
+      application, our legitimate interests. The
+      <a href="privacy.html" target="_blank" rel="noopener">privacy policy</a>
+      says how long each part is kept. To see what we hold, email
+      <a href="mailto:privacy@blackbook.london">privacy@blackbook.london</a>.
+    </p>
+
     </div>
 
     <div class="row lp-submit">
@@ -153,8 +184,8 @@
   </nav>
 </footer>
 
-<script src="assets/config.js?v=1791381844"></script>
-<script src="assets/join.js?v=1791381844"></script>
+<script src="assets/config.js?v=1791386077"></script>
+<script src="assets/join.js?v=1791386077"></script>
 
 </body>
 </html>
