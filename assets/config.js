@@ -28,14 +28,14 @@ window.BB_CONFIG = Object.freeze({
      Production keys start pk_live_, development keys pk_test_. The key
      encodes the Frontend API host, so the two values below must come from the
      same instance. */
-  CLERK_PUBLISHABLE_KEY: "pk_test_bGFyZ2UtbGFkeWJ1Zy00MTExLmNsZXJrLmFjY291bnRzLmRldiQ",
+  CLERK_PUBLISHABLE_KEY: "pk_live_Y2xlcmsuYmxhY2tib29rLmxvbmRvbiQ",
 
   /* Clerk Dashboard > Configure > API keys > Frontend API URL, host only, no
      scheme. Production serves it from a CNAME on our own domain,
      clerk.blackbook.london (see docs/clerk.md). A development instance uses
      <slug>.clerk.accounts.dev. ClerkJS itself is loaded from this host, so it
      must also appear in the page's script-src and connect-src. */
-  CLERK_FRONTEND_API: "large-ladybug-4111.clerk.accounts.dev"
+  CLERK_FRONTEND_API: "clerk.blackbook.london"
 
   /* DEV_BEARER, optional, and deliberately not present here.
 
