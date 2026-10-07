@@ -243,6 +243,7 @@
   define("ties", get("/api/ties"));
   define("tieRequests", get("/api/ties/requests"));
   define("suggestions", get("/api/suggestions"));
+  define("blocks", get("/api/blocks"));
   define("member", (id, reason) => root.api("/api/members/" + encodeURIComponent(id)
     + (reason ? "?reason=" + encodeURIComponent(reason) : "")), { fresh: Infinity });
   /* search:<query string>, as URLSearchParams writes it: search:sector=x&city=y */

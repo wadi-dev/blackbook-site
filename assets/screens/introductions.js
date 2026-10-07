@@ -13,7 +13,9 @@
 
    Declining is one silent step. Accept, decline and withdraw go to the
    server (boot.js), and so do the answers to met in person, whose requests
-   are GET /api/ties/requests. */
+   are GET /api/ties/requests. On a released card the other side's name opens
+   their card, from contact.member_id, and they can be reported there too
+   (profile.js). */
 
 const INTRO_LIVE = ["requested", "side_a_accepted", "side_b_accepted", "broker_review"];
 
@@ -63,13 +65,13 @@ BB.screens.introductions = function () {
     if (i.state === "released" && i.contact) {
       const c = i.contact;
       head = `
-        <div class="row" style="gap:11px">
+        <button class="row" data-member="${esc(c.member_id)}" style="gap:11px">
           ${tile(splitName(c.name), 36)}
           <span style="text-align:left">
             <span style="font-weight:650;font-size:14px;display:block">${esc(c.name)}</span>
             <span class="small muted">${esc(when)}</span>
           </span>
-        </div>`;
+        </button>`;
       label = "Released"; cls = "done";
       body = `
         <div class="small" style="margin-top:12px;line-height:1.7">
@@ -77,7 +79,8 @@ BB.screens.introductions = function () {
           ${c.linkedin_url ? `<div class="admin-link">${introLinkedIn(c.linkedin_url)}</div>` : ""}
         </div>
         ${note(`Both of you said yes and we approved it. The conversation is yours
-          from here, on your own channels. These details are shown here for 30 days.`)}`;
+          from here, on your own channels. These details are shown here for 30 days.`)}
+        <div style="margin-top:14px">${reportBlock({ id: c.member_id, first: splitName(c.name).first })}</div>`;
     } else if (i.state === "released") {
       /* Released, and the details taken away since: a block either way, or
          one of them has left. Which of those it was is nobody's business, so

@@ -67,10 +67,6 @@ DB.blocked = [];
    phone. We learn a name at the moment an introduction is agreed and both sides
    have accepted, and not before. See ../../blackbook/r1-options.md. */
 
-/* Firms this member has blocked. Absolute and silent: never disclosed to the
-   blocked party, and never to a searcher. */
-DB.blocks = [];
-
 /* The close circle: MUTUAL, unlike the vouch scale, which stays one-sided and
    private forever.
 
@@ -88,37 +84,23 @@ DB.circle = [];
    anything but the single invitation itself. */
 DB.circleOut = [];
 
-/* Met-in-person requests: the one way a connection forms outside a brokered
-   introduction. Two members meet at a dinner, one says so on the platform,
-   the other confirms, and only then does a tie exist. Mutual by construction,
-   silent on decline, and it carries no strength: each side sets their own
-   vouch privately afterwards, exactly as with any other connection.
-   The requests waiting on this member come from the API (GET
-   /api/ties/requests); these are the ones this member has sent. */
-DB.connectOut = [];
-
 /* Asks this member has passed one hop into their own network. */
 DB.passed = {};
 
-/* Conduct reports this member has filed.
+/* The four grounds for a conduct report, worded as the member would say them
+   rather than as the terms say them. Each maps to an obligation in section 4
+   that section 8 can act on, so a report is never an opinion about someone
+   being unpleasant.
 
-   The terms already forbid soliciting the membership (section 4) and make it a
-   ground for removal (section 8). Until now there was no way for a member to
-   say it had happened, which made both clauses decorative.
-
-   Deliberately empty on day one. A network that ships with somebody already
-   reported is telling its first ten members something untrue about itself. */
-DB.reports = [];
-
-/* The four grounds, worded as the member would say them rather than as the
-   terms say them. Each maps to an obligation in section 4 that section 8 can
-   act on, so a report is never an opinion about someone being unpleasant. */
-DB.reportReasons = {
+   Not mock data: the keys are the API's closed list (ReportReason in
+   app/routes/conduct.py), and a report with any other key is refused. The
+   words beside them are the page's own. */
+const REPORT_REASONS = Object.freeze({
   selling:    "Sold to me, or pitched the room",
   pressure:   "Kept pushing after I said no",
   identity:   "Not who they said they were",
   confidence: "Repeated something from here outside"
-};
+});
 
 /* ------------------------------------------------------------- lexicon --- */
 
@@ -291,9 +273,36 @@ const API = {
      (PeerView): handle, sector and city, and no name and no date. */
   tieRequests: () => BB.store.peek("tieRequests") || [],
 
+  /* One member's card, as GET /api/members/{id} answered it. The store keeps
+     it for the page session, and openMember (core.js) waits for it before
+     anything draws. Told apart by its fields:
+       - "peer", a stranger (PeerView): a handle, which is their role and
+         sector, their city, and no name. `tie` is "none", or "pending"
+         whichever of the two asked, and nothing may say which;
+       - "connection" (ConnectionView): name, role, firm, sector and city;
+       - "record": the founder seat reading anyone (StaffView), or a member
+         reading their own id. Shown as a connection is, with nothing to do.
+     No founder mark on any of them (D13). */
+  member(id) {
+    const v = BB.store.peek("member:" + id);
+    if (!v) return undefined;
+    if ("handle" in v) {
+      return { id: v.id, kind: "peer", handle: v.handle, sector: v.sector,
+               city: v.city, tie: v.tie, initials: "" };
+    }
+    return {
+      id: v.id, kind: v.tie === "confirmed" ? "connection" : "record",
+      ...splitName(v.name), role: v.role_title, firm: v.firm,
+      sector: v.sector, city: v.city
+    };
+  },
+
+  /* Blocks this member made, as [{id}]. The API names nobody on them, so
+     neither does Settings. */
+  blocks: () => BB.store.peek("blocks") || [],
+
   /* ---- Mock ------------------------------------------------------------ */
 
-  member:    id => DB.members.find(m => m.id === id),
   members:   () => DB.members.filter(m => m.id !== DB.me),
   ties:      () => DB.ties.map(t => ({ ...t, member: API.member(t.id) })),
 
@@ -350,28 +359,6 @@ const API = {
   },
   hasPassed: id => !!DB.passed[id],
 
-  block(firm) {
-    const name = firm.trim();
-    if (!name || DB.blocks.includes(name)) return false;
-    DB.blocks.push(name);
-    return true;
-  },
-  unblock(firm) {
-    const i = DB.blocks.indexOf(firm);
-    if (i > -1) DB.blocks.splice(i, 1);
-  },
-
-  /* Met in person, from a profile. The request only says "we have met"; the
-     tie forms when the other side agrees that is true. Answering one is live
-     (boot.js); asking is still the mock until the profile is connected. */
-  isTied: id => DB.ties.some(t => t.id === id),
-  hasRequestedConnect: id => DB.connectOut.includes(id),
-  requestConnect(id) {
-    if (!API.member(id) || API.isTied(id) || API.hasRequestedConnect(id)) return false;
-    DB.connectOut.push(id);
-    return true;
-  },
-
   /* The close circle. Mutual by construction: nothing is shared until both
      have said yes, and a decline is silent, so the inviter simply never
      learns. It is not decided yet, so nothing here reaches the API, and the
@@ -383,28 +370,6 @@ const API = {
     DB.circleOut.push(id);
     return true;
   },
-
-  /* Reporting conduct.
-
-     Silent, like a decline and like a block. If reporting were visible nobody
-     senior would ever use it: the cost of being seen to complain, in this
-     industry, is higher than the cost of being sold to.
-
-     Note what is deliberately NOT returned: how many other people have
-     reported the same person. That is the founder's view, not a member's.
-     Telling one member that two others have complained hands them a fact about
-     two people who did not consent to share it. */
-  report(id, reason, detail) {
-    if (!API.member(id) || !DB.reportReasons[reason]) return false;
-    if (API.reportedByMe(id)) return false;
-    DB.reports.push({
-      about: id, by: DB.me, reason,
-      detail: (detail || "").trim().slice(0, 600),
-      when: new Date().toISOString()
-    });
-    return true;
-  },
-  reportedByMe: id => DB.reports.some(r => r.about === id),
 
   /* Search anonymises STRANGERS, not everyone.
      Veiling someone whose name you already have is theatre, and theatre is

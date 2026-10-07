@@ -221,19 +221,24 @@
         invalidate: ["introductions"] });
     if (!sent) return;
     const redraw = () => { if (BB.state.screen === "introductions") render(); };
-    sent.then(() => { toast(done); redraw(); }, err => { toast(said(err, gone)); redraw(); });
+    sent.then(() => {
+      /* Withdrawn here, so a card that asked for it no longer offers Undo. */
+      const asked = BB.state.requested || {};
+      Object.keys(asked).forEach(m => { if (asked[m] === id) delete asked[m]; });
+      toast(done); redraw();
+    }, err => { toast(said(err, gone)); redraw(); });
   }
 
   /* Met in person, addressed by the asker's id: confirm or decline, each a
      POST with no body. Either way the request leaves the list as soon as the
      server agrees. A confirmation makes a connection, so the connections are
-     read again too. */
+     read again too, and so is the asker's card if this page holds it. */
   function sendMet(what, id) {
     if (what !== "confirm" && what !== "decline") return;
     const sent = BB.store.write(id, () => BB.api("/api/ties/requests/"
       + encodeURIComponent(id) + "/" + what, { method: "POST" }),
       { update: { tieRequests: list => list.filter(r => r.id !== id) },
-        invalidate: what === "confirm" ? ["tieRequests", "ties"] : ["tieRequests"] });
+        invalidate: what === "confirm" ? ["tieRequests", "ties", "member:" + id] : ["tieRequests"] });
     if (!sent) return;
     const redraw = () => { if (BB.state.screen === "introductions") render(); };
     sent.then(() => {
@@ -242,6 +247,73 @@
         : "Declined, silently. They are not told.");
       redraw();
     }, err => { toast(said(err, "That request is no longer open.")); redraw(); });
+  }
+
+  /* Met in person, asked from a stranger's card: a POST naming them. The
+     answer is their card as it now stands, its tie pending, and it replaces
+     the card the store holds, so the redraw shows it. Neither says who asked. */
+  function sendConnect(id) {
+    const key = "member:" + id;
+    const sent = BB.store.write("met:" + id, () => BB.api("/api/ties/requests",
+      { method: "POST", body: { member_id: id } }), { update: { [key]: (held, card) => card } });
+    if (!sent) return;
+    sent.then(() => {
+      refreshDetail();
+      toast("Noted. If they agree you have met, you connect. If not, you are not told.");
+    }, err => toast(said(err, "That member is not available.")));
+  }
+
+  /* A conduct report: one of the four reasons, and what happened if they
+     said. The API answers 204 whatever it did with it, so "already reported"
+     is this page's own memory, kept in BB.state for the session and nowhere
+     else. The text is read from the form the Send button sits in, since a
+     released introduction and the card over it can both hold one. */
+  function sendReport(id, btn) {
+    const reason = BB.state.reportReason;
+    if (!reason || !REPORT_REASONS[reason]) { toast("Choose what happened first."); return; }
+    const box = btn.closest(".card").querySelector("textarea");
+    const sent = BB.store.write("report:" + id, () => BB.api("/api/conduct/reports",
+      { method: "POST", body: { member_id: id, reason, detail: box ? box.value.trim() : "" } }));
+    if (!sent) return;
+    sent.then(() => {
+      (BB.state.reported = BB.state.reported || {})[id] = true;
+      BB.state.reporting = null;
+      BB.state.reportReason = null;
+      if (!refreshDetail()) render();
+      toast("Sent to us. They are not told, and never learn it was you.");
+    }, err => toast(said(err, "That report could not be sent. Try again.")));
+  }
+
+  /* Blocking, from a card. The API answers 204 whatever happened. From then
+     on the two are an unknown id to each other, so the card closes, and
+     everything that could still name the other is read again: the card
+     itself, the connections, a released introduction's details, and the
+     list in Settings. */
+  function sendBlock(id) {
+    const sent = BB.store.write("block:" + id, () => BB.api("/api/blocks",
+      { method: "POST", body: { member_id: id } }),
+      { invalidate: ["member:" + id, "ties", "introductions", "blocks"] });
+    if (!sent) return;
+    sent.then(() => {
+      BB.state.blocking = null;
+      closeMember(null);
+      render();
+      toast("Blocked. They are not told. You can undo it in Settings.");
+    }, err => toast(said(err, "That member is not available.")));
+  }
+
+  /* Unblocking, by the block's own id, from Settings. The list does not say
+     who it was, so every card this page holds is read again, with the
+     connections and the introductions. */
+  function sendUnblock(id) {
+    const sent = BB.store.write("unblock:" + id, () => BB.api("/api/blocks/"
+      + encodeURIComponent(id), { method: "DELETE" }),
+      { update: { blocks: list => list.filter(b => b.id !== id) },
+        invalidate: ["blocks", "member", "ties", "introductions"] });
+    if (!sent) return;
+    const redraw = () => { if (BB.state.screen === "settings") render(); };
+    sent.then(() => { toast("Unblocked. They are not told either way."); redraw(); },
+      err => { toast(said(err, "That block has already gone.")); redraw(); });
   }
 
   /* Delegated once, at the document level, so it survives every re-render. */
@@ -358,35 +430,19 @@
 
     /* ---- Blocking --------------------------------------------------------- */
     const unblock = e.target.closest("[data-unblock]");
-    if (unblock) {
-      API.unblock(unblock.dataset.unblock);
-      toast(`${unblock.dataset.unblock} can see you again. They are not told either way.`);
-      render(); return;
-    }
+    if (unblock) { sendUnblock(unblock.dataset.unblock); return; }
     const block = e.target.closest("[data-block]");
     if (block) {
       const what = block.dataset.block;
-      if (what === "new") BB.state.addBlock = true;
-      if (what === "cancel") BB.state.addBlock = false;
-      if (what === "save") {
-        const v = document.getElementById("block-firm").value;
-        if (!v.trim()) { toast("Name the firm to block."); return; }
-        toast(API.block(v) ? "Blocked. Absolute and silent." : "Already blocked.");
-        BB.state.addBlock = false;
-      }
-      render(); return;
+      if (what === "confirm") { sendBlock(block.dataset.for); return; }
+      BB.state.blocking = what === "ask" ? block.dataset.for : null;
+      if (!refreshDetail()) render();
+      return;
     }
 
     /* ---- Met in person ----------------------------------------------------- */
     const creq = e.target.closest("[data-connect]");
-    if (creq) {
-      const who = API.member(creq.dataset.connect);
-      if (API.requestConnect(creq.dataset.connect)) {
-        toast(`Noted. If ${who.first} agrees you have met, you connect. If not, you are not told.`);
-      }
-      if (!refreshDetail()) render();
-      return;
-    }
+    if (creq) { sendConnect(creq.dataset.connect); return; }
     const met = e.target.closest("[data-met]");
     if (met) { sendMet(met.dataset.met, met.dataset.id); return; }
 
@@ -404,23 +460,13 @@
     const rep = e.target.closest("[data-report]");
     if (rep) {
       const what = rep.dataset.report;
-      if (what === "open") { BB.state.reporting = rep.dataset.id; BB.state.reportReason = null; }
+      if (what === "send") { sendReport(rep.dataset.for, rep); return; }
+      if (what === "open") { BB.state.reporting = rep.dataset.for; BB.state.reportReason = null; }
       if (what === "cancel") { BB.state.reporting = null; BB.state.reportReason = null; }
       if (what === "reason") {
         /* Tapping the chosen ground again clears it, so a misclick is
            recoverable without cancelling the whole report. */
         BB.state.reportReason = BB.state.reportReason === rep.dataset.v ? null : rep.dataset.v;
-      }
-      if (what === "send") {
-        if (!BB.state.reportReason) { toast("Choose what happened first."); return; }
-        const box = document.getElementById("report-detail");
-        const who = API.member(rep.dataset.id);
-        if (!API.report(rep.dataset.id, BB.state.reportReason, box ? box.value : "")) {
-          toast("Already reported."); return;
-        }
-        BB.state.reporting = null;
-        BB.state.reportReason = null;
-        toast(`Sent to us. ${who.first} was not told, and never learns it was you.`);
       }
       /* Reporting happens on two surfaces: a profile, which is the FLIP overlay,
          and a released introduction, which is an ordinary screen. render() only

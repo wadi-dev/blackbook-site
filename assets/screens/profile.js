@@ -1,150 +1,88 @@
-/* The member profile, the destination of the one signature motion.
+/* A member's card, the destination of the one signature motion.
 
-   Left rail: the photo and who they connect with. Right: what they can open,
-   what they have done, and what they need. The Ask is the only element on the
-   page framed in solid ink, because it is the only element asking something
-   of the reader. */
+   It shows what the API answered (API.member) and nothing else. A stranger
+   is a seat: their role and sector as a handle, their city, and a tile with
+   nothing on it, never a name. A connection, someone you have both
+   confirmed, is a name, role, firm and city. Neither shows what they can
+   open or what they need, because other members do not see either in the
+   app, and there is no founder mark on either (D13).
+
+   A stranger can be asked for an introduction, or told you have met.
+   Anyone but yourself can be reported or blocked, and both sit last and
+   styled down. The founder seat reading a card gets the record and nothing
+   to do on it. */
+
+const firstOf = m => m.first ? esc(m.first) : "";
 
 BB.screens._profile = function (m) {
-  const ties = API.ties().filter(t => t.id !== m.id).slice(0, 5);
+  const peer = m.kind === "peer";
+  const acts = m.kind !== "record";
 
   return `
   <div class="cols a" style="padding-top:26px">
     <div class="fade">
-      <div class="tile lg" data-hero style="width:100%;aspect-ratio:1;font-size:64px">${esc(m.initials)}</div>
+      <div class="tile lg${peer ? " veiled" : ""}" data-hero style="width:100%;aspect-ratio:1;font-size:64px">${esc(m.initials)}</div>
 
       <div style="margin-top:22px">
-        <h1 class="display" style="font-size:29px">${nameOf(m)}</h1>
+        <h1 class="display" style="font-size:29px">${peer ? esc(m.handle) : nameOf(m)}</h1>
         <p class="muted" style="font-size:14px;margin-top:7px;line-height:1.5">
-          ${esc(m.role)}<br>${esc(m.firm)} · ${esc(m.city)}
+          ${peer ? esc(m.city) : `${esc(m.role)}<br>${[m.firm, m.city].filter(Boolean).map(esc).join(" · ")}`}
         </p>
       </div>
-
-      <hr class="rule">
-
-      <p class="eyebrow" style="margin-bottom:12px">Connects with</p>
-      <div class="carousel">
-        ${ties.map(t => `
-          <button class="c" data-member="${esc(t.id)}">
-            ${tile(t.member, 104)}
-            <span class="cn">${nameOf(t.member, true)}</span>
-            <span class="cf">${esc(t.member.firm)}</span>
-            ${dots(t.strength)}
-          </button>`).join("")}
-      </div>
-      <p class="small muted" style="margin-top:2px">Only mutual connections are shown to you.</p>
     </div>
 
     <div class="fade stack">
-      <div class="card">
-        <div class="card-head">
-          <h2>What they can open</h2>
-          <span class="eyebrow">${esc(m.sector)}</span>
-        </div>
-        <div class="row" style="margin-bottom:16px">
-          <span class="pill">${esc(m.sector)}</span>
-          <span class="pill plain">${esc(m.sub)}</span>
-        </div>
-        ${m.gives.map((g, i) => `
-          <div style="padding:12px 0;${i ? "border-top:1px solid var(--line)" : ""}">
-            <div class="spread">
-              <span style="font-size:14px;font-weight:600">${esc(g.text)}</span>
-              <span class="tag">${esc(DB.types[g.type])}</span>
-            </div>
-          </div>`).join("")}
-      </div>
-
-      <div class="card">
-        <div class="card-head"><h2>Achievements</h2></div>
-        ${m.achievements.map((a, i) => `
-          <div style="display:flex;gap:13px;padding:11px 0;${i ? "border-top:1px solid var(--line)" : ""}">
-            <span class="small muted tabular" style="padding-top:2px">0${i + 1}</span>
-            <span style="font-size:14px;line-height:1.5">${esc(a)}</span>
-          </div>`).join("")}
-      </div>
-
-      ${closedCard(m)}
-
-      <div class="card">
-        <div class="card-head">
-          <h2>Their ask</h2>
-          <span class="eyebrow">${esc(DB.types[m.askType])}</span>
-        </div>
-        <div class="askbox"><p>${esc(m.ask)}</p></div>
-
-        <div class="row" style="margin-top:18px">
-          <button class="btn primary block" data-act="help">I can help with this</button>
-        </div>
-        <div class="row" style="margin-top:9px">
-          <button class="btn block" data-act="request">Request an introduction</button>
-        </div>
-        <p class="small muted" style="margin-top:14px;line-height:1.6">
-          Double opt-in. Nothing is sent, and no identity released, until
-          ${esc(m.first)} accepts. You will not be told if they decline.
-        </p>
-      </div>
-
-      ${connectBlock(m)}
-      ${reportBlock(m)}
+      ${peer ? requestCard(m) : ""}
+      ${peer ? connectBlock(m) : ""}
+      ${acts ? reportBlock(m) : ""}
+      ${acts ? blockBlock(m) : ""}
     </div>
   </div>`;
 };
 
+/* Asking for an introduction, on a stranger's card only (D13): a connection
+   already has your name and you theirs. core.js sends it and its Undo. */
+function requestCard(m) {
+  const asked = BB.state.requested && BB.state.requested[m.id];
+  return `
+  <div class="card">
+    ${asked ? `
+      <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
+        <span class="pill plain">Checking with them</span>
+        <button class="btn sm quiet" data-act="undo" data-for="${esc(m.id)}"
+          data-id="undo:${esc(m.id)}">Undo</button>
+      </div>`
+    : `
+      <button class="btn primary block" data-act="request" data-for="${esc(m.id)}"
+        data-id="request:${esc(m.id)}">Request an introduction</button>`}
+    <p class="small muted" style="margin-top:14px;line-height:1.6">
+      We ask them straight away, privately and without your name. Nothing is
+      released until they say yes and we approve it. If it does not go ahead,
+      you see only that it did not proceed. You can follow it under Introductions.
+    </p>
+  </div>`;
+}
+
 /* Met in person: the one way a connection forms outside a brokered
-   introduction, offered quietly and only when no tie exists. The request
-   claims nothing but the meeting itself; the tie forms when the other side
-   agrees that is true, and each side then sets their own vouch privately.
-   A decline is silent, like every other decline in the product. */
+   introduction, offered quietly and only to a stranger. The request claims
+   nothing but the meeting itself; the tie forms when the other side agrees
+   that is true, and each side then sets their own vouch privately. A decline
+   is silent, like every other decline in the product.
+
+   Once either of them has asked, the card reads the same whoever it was,
+   because the API does not say and the card must not guess. */
 function connectBlock(m) {
-  if (API.isTied(m.id)) return "";
-  if (API.hasRequestedConnect(m.id)) return `
+  if (m.tie === "pending") return `
     <p class="small muted" style="line-height:1.6">
-      You have told us you and ${esc(m.first)} have met. If they agree, you
-      connect. If not, you will not be told.
+      A request saying you have met is open between you. If it is waiting on
+      you, it is under Introductions. If it is confirmed you connect, and a
+      decline is never shown.
     </p>`;
   return `
     <p class="small muted">
       <button class="btn quiet sm" style="margin-left:-13px"
-        data-connect="${esc(m.id)}">We have met in person</button>
+        data-connect="${esc(m.id)}" data-id="met:${esc(m.id)}">We have met in person</button>
     </p>`;
-}
-
-/* The private profile, shown only inside a mutual close circle.
-
-   Every member has two depths: the public record, and the work they share
-   only with people who are IN their circle. Circle membership is mutual and
-   deliberate: one member extends an invitation, the other accepts or silently
-   declines, and only then do the two see each other's private sides. The
-   vouch scale never opens this door on its own, or members would inflate
-   their sevens to get through it and the ratings would rot into flattery.
-
-   The purpose is anti-solicitation. A £250m deal that is not public is
-   exactly the material a seller cold-pitches against, so it reaches only
-   people the member has personally let in. And when the viewer is outside
-   the circle, NOTHING renders: no locked card, no "2 hidden items", no
-   teaser. A visible lock invites exactly the pestering the layer exists to
-   prevent, and this product already has a rule for that shape: a block is
-   never disclosed either. */
-function closedCard(m) {
-  if (!m.closed || !m.closed.length) return "";
-  if (!API.inCircle(m.id)) return "";
-  return `
-  <div class="card">
-    <div class="card-head">
-      <h2>Their private profile</h2>
-      <span class="eyebrow">Close circle</span>
-    </div>
-    ${m.closed.map((a, i) => `
-      <div style="display:flex;gap:13px;padding:11px 0;${i ? "border-top:1px solid var(--line)" : ""}">
-        <span class="small muted tabular" style="padding-top:2px">0${i + 1}</span>
-        <span style="font-size:14px;line-height:1.5">${esc(a)}</span>
-      </div>`).join("")}
-    <p class="small muted" style="margin-top:12px;line-height:1.6">
-      Shared with you because you are in ${esc(m.first)}'s close circle, and
-      they are in yours. It is not on their public profile, and the rest of
-      the network is not told it exists.
-    </p>
-  </div>`;
 }
 
 /* Reporting conduct.
@@ -156,16 +94,22 @@ function closedCard(m) {
    The copy states what actually happens, and what happens is small, because
    Blackbook London cannot see the conversation it is being told about. One report is
    one person's word. That is worth saying rather than implying an
-   investigation that cannot happen. */
+   investigation that cannot happen.
+
+   Also drawn on a released introduction, where `m` is { id, first } from its
+   contact. The API answers every report the same way, so "already reported"
+   is this page's memory, in BB.state for the session (boot.js). */
 
 function reportBlock(m) {
-  const done = API.reportedByMe(m.id);
+  const done = BB.state.reported && BB.state.reported[m.id];
   const open = BB.state.reporting === m.id;
   const picked = BB.state.reportReason;
+  const name = firstOf(m);
 
   if (done) return `
     <p class="small muted" style="line-height:1.6">
-      You reported ${esc(m.first)}. It is with us and ${esc(m.first)} was not told.
+      You reported ${name || "this member"}. It is with us. They are not told,
+      and never learn it was you.
     </p>`;
 
   /* Pulled left by its own padding and border so the label sits on the text
@@ -174,22 +118,22 @@ function reportBlock(m) {
   if (!open) return `
     <p class="small muted">
       <button class="btn quiet sm" style="margin-left:-13px"
-        data-report="open" data-id="${esc(m.id)}">Report conduct</button>
+        data-report="open" data-for="${esc(m.id)}">Report conduct</button>
     </p>`;
 
   return `
   <div class="card">
-    <div class="card-head"><h2>Report ${esc(m.first)}</h2></div>
+    <div class="card-head"><h2>Report ${name || "this member"}</h2></div>
     <p class="small muted" style="line-height:1.65;margin-bottom:4px">
       For breaking what every member agreed to. Not for declining you, not for
       being slow, and not for saying no.
     </p>
 
     <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:16px">
-      ${Object.keys(DB.reportReasons).map(k => `
+      ${Object.keys(REPORT_REASONS).map(k => `
         <button class="pill${picked === k ? " solid" : " plain"}"
           data-report="reason" data-v="${k}"
-          aria-pressed="${picked === k}">${esc(DB.reportReasons[k])}</button>`).join("")}
+          aria-pressed="${picked === k}">${esc(REPORT_REASONS[k])}</button>`).join("")}
     </div>
 
     <label class="fld">
@@ -199,24 +143,50 @@ function reportBlock(m) {
     </label>
 
     <div class="veil" style="margin-top:16px">
-      <b>${esc(m.first)} is never told, and never learns it was you.</b>
-      We read it, we keep it, and we act when a pattern forms rather than on a
-      single account. Nothing visible happens straight away, and if you were
-      expecting it to, this is the wrong expectation to leave you with.
+      <b>A single report is not passed on to them, and they never learn it was you.</b>
+      We read every report and keep it. One report changes nothing on its own:
+      if a second member raises the same thing separately, we look at both and
+      speak to them before anything is decided. Nothing visible happens
+      straight away, and if you were expecting it to, this is the wrong
+      expectation to leave you with.
     </div>
 
     <div class="row" style="margin-top:16px">
-      <button class="btn primary sm" data-report="send" data-id="${esc(m.id)}">Send it to us</button>
+      <button class="btn primary sm" data-report="send" data-for="${esc(m.id)}"
+        data-id="report:${esc(m.id)}">Send it to us</button>
       <button class="btn sm quiet" data-report="cancel">Cancel</button>
     </div>
   </div>`;
 }
 
+/* Blocking, from the card. One step to ask and one to confirm, because it
+   takes effect at once: the card closes and the two of them stop seeing each
+   other. It is undone from Settings. */
+function blockBlock(m) {
+  if (BB.state.blocking !== m.id) return `
+    <p class="small muted">
+      <button class="btn quiet sm" style="margin-left:-13px"
+        data-block="ask" data-for="${esc(m.id)}">Block</button>
+    </p>`;
+  return `
+  <div class="veil">
+    <b>They are never told.</b> From then on neither of you sees the other
+    anywhere in Blackbook London, including the details of an introduction
+    already made. You can undo it in Settings.
+    <div class="row" style="margin-top:14px">
+      <button class="btn danger sm" data-block="confirm" data-for="${esc(m.id)}"
+        data-id="block:${esc(m.id)}">Yes, block</button>
+      <button class="btn sm quiet" data-block="cancel">Cancel</button>
+    </div>
+  </div>`;
+}
 
-/* Settings, preferences, membership, your data and leaving. */
+
+/* Settings, preferences, blocks, membership, your data and leaving. */
 
 BB.screens.settings = function () {
   const me = API.me();
+  const blocks = API.blocks();
   /* What "Show me everything" fetched (boot.js), or null: the export, and
      the member's own audit trail, newest first. */
   const data = BB.state.myData;
@@ -251,6 +221,23 @@ BB.screens.settings = function () {
           <div><div class="t">Density</div><div class="d">Compact fits more on screen.</div></div>
           ${seg("set-density", [["comfortable","Comfortable"],["compact","Compact"]], density)}
         </div>
+      </div>
+
+      <!-- Blocks, as GET /api/blocks lists them: an id each and nothing about
+           the other member, so no name, no firm and no date. -->
+      <div class="card">
+        <div class="card-head"><h2>Blocked</h2></div>
+        <p class="small muted" style="line-height:1.65">
+          A block is silent. They are never told, and neither of you sees the other.
+          Each one is listed without a name, because once blocked they are hidden
+          from you too. You block someone from their card.
+        </p>
+        ${blocks.length ? blocks.map(b => `
+          <div class="set-row">
+            <div class="t">Blocked</div>
+            <button class="btn sm" data-unblock="${esc(b.id)}" data-id="unblock:${esc(b.id)}">Unblock</button>
+          </div>`).join("")
+        : '<p class="small muted" style="margin-top:10px">Nobody is blocked.</p>'}
       </div>
 
       <div class="card">
@@ -348,4 +335,4 @@ BB.screens.settings = function () {
     </div>
   </div>`;
 };
-BB.screens.settings.needs = ["me"];
+BB.screens.settings.needs = ["me", "blocks"];

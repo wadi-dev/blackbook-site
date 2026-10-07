@@ -190,15 +190,11 @@ function render() {
      single account is exactly what this must not do: Blackbook London never sees the
      conversation, so one report is one member's word against another's. Two
      separate members saying the same thing is the first thing that is actually
-     evidence, and grouping is what makes that visible at a glance. */
-  const conduct = Object.values(DB.reports.reduce((acc, r) => {
-    (acc[r.about] = acc[r.about] || { member: API.member(r.about), rows: [] })
-      .rows.push(r);
-    return acc;
-  }, {})).map(c => ({
-    ...c,
-    reporters: new Set(c.rows.map(r => r.by)).size
-  })).sort((a, b) => b.reporters - a.reporters || b.rows.length - a.rows.length);
+     evidence, and grouping is what makes that visible at a glance.
+
+     Filed reports are on the API now, and the founder reads them in Admin.
+     This page has no source for them, so the list is empty. */
+  const conduct = [];
 
   const tabs = [["board", `Worth doing ${worth.length}`],
                 ["maybe", `Speculative ${speculative.length}`],
@@ -303,7 +299,7 @@ function render() {
                 : `${c.reporters} separate members. This is a pattern. Section 8 applies, and ${esc(c.member.referredBy || "their sponsor")} is told the reason.`}
             </span>
             <span class="m-why">${c.rows.map(r =>
-              `<span>${esc(DB.reportReasons[r.reason])}</span>`).join("")}</span>
+              `<span>${esc(REPORT_REASONS[r.reason])}</span>`).join("")}</span>
             ${c.rows.filter(r => r.detail).map(r => `
               <span class="m-line muted" style="margin-top:8px;font-style:italic">
                 ${esc(r.detail)}</span>`).join("")}

@@ -110,16 +110,15 @@ BB.screens.home = function () {
 
     <div class="stack">
       <div class="card">
-        <div class="card-head"><h2>Connections</h2>
-          ${ties.length ? '<button class="btn sm quiet" data-go="network">All</button>' : ""}</div>
+        <div class="card-head"><h2>Connections</h2></div>
         ${ties.length ? ties.slice(0, 4).map(t => `
-          <div class="prow" style="cursor:default">
+          <button class="prow" data-member="${esc(t.id)}">
             ${tile(t, 34)}
             <span class="grow">
               <span class="who">${nameOf(t, true)}</span>
               <span class="sub">${[t.role, t.firm].filter(Boolean).map(esc).join(" · ")}</span>
             </span>
-          </div>`).join("") : `
+          </button>`).join("") : `
           <div class="empty">
             <b>Nobody yet.</b>
             Connections come from the members you invite and from introductions

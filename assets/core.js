@@ -75,6 +75,12 @@ const NAV = [
   ["home", "Home"], ["network", "Network"], ["asks", "Asks"], ["gives", "Gives"],
   ["members", "Members"], ["introductions", "Introductions"]
 ];
+/* Screens still drawn from the mock in data.js, so not shown beside live
+   data (D2): Members and Search until M6, Asks until M8. They are left out
+   of the bar, the tab bar and the topbar, and render() draws Home for a link
+   that names one. */
+const HIDDEN = ["members", "search", "asks"];
+const shown = list => list.filter(([k]) => !HIDDEN.includes(k));
 /* Admin is not in NAV. It is added at the far right of the topbar, and at
    the foot of the More sheet on a phone, once the API has answered that the
    caller is staff (BB.auth.isStaff sets BB.staff), so a member's chrome never
@@ -126,21 +132,21 @@ function renderChrome() {
     <div class="topbar-inner">
       <span class="wordmark">Blackbook<span class="geo">(London)</span></span>
       <nav class="nav" aria-label="Main">
-        ${withAdmin(NAV).map(([k, label]) => {
+        ${withAdmin(shown(NAV)).map(([k, label]) => {
           const n = k === "introductions" ? waiting : 0;
           return `<button data-go="${k}" aria-current="${BB.state.screen === k}">${label}` +
             (n ? `<span class="count">${n}</span>` : "") + `</button>`;
         }).join("")}
       </nav>
-      <button class="icon-btn" data-go="search" title="Search" aria-label="Search"
-        aria-current="${BB.state.screen === "search"}">${svg(ICON.search)}</button>
+      ${HIDDEN.includes("search") ? "" : `<button class="icon-btn" data-go="search" title="Search" aria-label="Search"
+        aria-current="${BB.state.screen === "search"}">${svg(ICON.search)}</button>`}
       <button class="icon-btn" data-go="settings" title="Settings" aria-label="Settings">${svg(ICON.cog)}</button>
     </div>`;
 
   const sheet = withAdmin(SHEET);
   const onSheet = sheet.some(([k]) => k === BB.state.screen);
 
-  document.getElementById("tabbar").innerHTML = TABS.map(([k, label, icon]) => {
+  document.getElementById("tabbar").innerHTML = shown(TABS).map(([k, label, icon]) => {
     const current = k === "more" ? onSheet : BB.state.screen === k;
     const n = k === "introductions" ? waiting : 0;
     return `<button ${k === "more" ? 'data-sheet="open"' : `data-go="${k}"`}
@@ -236,6 +242,7 @@ function go(screen) {
 let renders = 0;
 
 function render() {
+  if (HIDDEN.includes(BB.state.screen)) BB.state.screen = "home";
   renderChrome();
   const host = document.getElementById("screen");
   const fn = BB.screens[BB.state.screen] || BB.screens.home;
@@ -557,30 +564,51 @@ function wire(root) {
     b.addEventListener("click", () => act(b.dataset.act, b)));
 }
 
-/* Actions that only need to feel real for a prototype. */
+/* A card's own buttons: asking for an introduction, and its Undo. Each
+   carries the member's id in data-for; a button without one does nothing. */
 function act(kind, btn) {
-  /* Help and request are undoable, because a thumb slips. The honesty that
-     makes the undo possible: pressing the button asks US to start the
-     process, and until we act nothing has reached the other member. So undo
-     is not recalling a message, it is cancelling an instruction that had not
-     yet been carried out. The button element is kept, listener and all, and
-     put back exactly where it was. */
-  if (kind === "help" || kind === "request") {
-    const wrap = el("span", "row");
-    wrap.style.cssText = "gap:10px;align-items:center;flex-wrap:wrap";
-    wrap.innerHTML =
-      `<span class="pill plain">${kind === "help"
-        ? "Offer sent · awaiting opt-in" : "Awaiting their opt-in"}</span>
-       <button class="btn sm quiet">Undo</button>`;
-    btn.replaceWith(wrap);
-    wrap.querySelector("button").addEventListener("click", () => {
-      wrap.replaceWith(btn);
-      toast("Undone. Nothing had been sent, and nothing is recorded.");
-    });
-    toast(kind === "help"
-      ? "Offer sent. They decide whether to see your name. Undo is there if that was a slip."
-      : "Requested. Nothing is released until they accept. Undo is there if that was a slip.");
-  }
+  const memberId = btn.dataset.for;
+  if (!memberId) return;
+  if (kind === "request") requestIntro(memberId);
+  else if (kind === "undo") undoIntro(memberId);
+}
+
+/* Asking for an introduction to a stranger. The request reaches them at
+   once, without the asker's name, so Undo is a withdrawal like the one on
+   the Introductions screen: they see only that it did not proceed. Undo is
+   there because a thumb slips.
+
+   The id the API answers is kept in BB.state for the page session, so the
+   card draws the request and its Undo however often it is redrawn. One
+   write per member at a time, so a double tap is one request, and the API
+   answers a repeat with the request already open in any case. The toast
+   waits for the server. */
+function requestIntro(memberId) {
+  const sent = BB.store.write("request:" + memberId, () => BB.api("/api/introductions",
+    { method: "POST", body: { member_id: memberId } }), { invalidate: ["introductions"] });
+  if (!sent) return;
+  sent.then(row => {
+    (BB.state.requested = BB.state.requested || {})[memberId] = row.id;
+    refreshDetail();
+    toast("Requested. Nothing is released until they say yes and we approve it.");
+  }, err => toast(err && err.status === 404
+    ? "That member is not available." : (err && err.detail) || "Something went wrong."));
+}
+
+function undoIntro(memberId) {
+  const introId = BB.state.requested && BB.state.requested[memberId];
+  if (!introId) return;
+  const sent = BB.store.write("undo:" + memberId, () => BB.api("/api/introductions/"
+    + encodeURIComponent(introId) + "/withdraw", { method: "POST" }),
+    { invalidate: ["introductions"] });
+  if (!sent) return;
+  sent.then(() => {
+    delete BB.state.requested[memberId];
+    refreshDetail();
+    toast("Withdrawn. They see only that it did not proceed.");
+  }, err => toast(err && err.status === 404
+    ? "It can no longer be withdrawn here. Tell us and it will not proceed."
+    : (err && err.detail) || "Something went wrong."));
 }
 
 /* ------------------------------------------------------ member detail ---- */
@@ -589,9 +617,10 @@ function act(kind, btn) {
    once, so the card *is* the profile opened rather than a new page loading.
    Everything else in Blackbook London is instant. */
 
-/* The trail of profiles opened without leaving the overlay. Profiles link to
-   each other through "Connects with", so this can go several deep. Back walks
-   it one step; Home leaves entirely.
+/* The trail of profiles opened without leaving the overlay. A card no longer
+   links to another, so today it is one deep, but anything that opens a card
+   while one is open walks deeper rather than stacking. Back walks it one
+   step; Home leaves entirely.
 
    It exists because the previous version appended a SECOND #detail for every
    hop, duplicate ids, and Back removed whichever getElementById found first,
@@ -599,14 +628,29 @@ function act(kind, btn) {
    scroll lock already released and Back doing nothing. */
 BB.trail = [];
 
+/* A card is read from the API once per page session (BB.store.member):
+   every staff read of a card is a look recorded on that member's own trail,
+   and the founder seat's reads give this reason, which the member reads
+   beside the look. A 404 is every card a member may not have, blocked,
+   departed or never there, so it gets one fixed sentence. */
+const CARD_REASON = "member card";
+const staffSeat = () => {
+  const me = BB.store.peek("me");
+  return BB.staff === true || !!(me && me.role);
+};
+const loadCard = id => BB.store.member(id, staffSeat() ? CARD_REASON : undefined)
+  .then(() => API.member(id));
+const cardRefused = err => toast(err && err.status === 404
+  ? "That card is not available." : (err && err.detail) || "Could not load the card.");
+
+/* The bar shows the sector and nothing else: the one thing every card has,
+   a stranger's included. */
 function detailBody(m) {
   return `
     <div class="detail-bar"><div class="inner">
       <button class="btn sm" id="detail-back">${svg(ICON.back, 14)} ${BB.trail.length > 1 ? "Back" : "Close"}</button>
       <button class="icon-btn" id="detail-home" title="Home" aria-label="Home">${svg(ICON.home)}</button>
-      <span class="eyebrow">${esc(m.sector)} · ${esc(m.sub)}</span>
-      <span class="grow"></span>
-      <span class="pill plain">Verified</span>
+      <span class="eyebrow">${esc(m.sector)}</span>
     </div></div>
     <div class="shell">${BB.screens._profile(m)}</div>`;
 }
@@ -614,14 +658,15 @@ function detailBody(m) {
 /* Re-point an already-open overlay at a different member, rather than stacking
    a new one on top of it. */
 function swapMember(id) {
-  const m = API.member(id);
-  const wrap = document.getElementById("detail");
-  if (!m || !wrap) return;
-  BB.state.detail = id;
-  wrap.innerHTML = detailBody(m);
-  wrap.scrollTop = 0;
-  wrap.querySelectorAll(".fade").forEach(f => f.classList.add("in"));
-  wireDetail(wrap);
+  return loadCard(id).then(m => {
+    const wrap = document.getElementById("detail");
+    if (!m || !wrap) return;
+    BB.state.detail = id;
+    wrap.innerHTML = detailBody(m);
+    wrap.scrollTop = 0;
+    wrap.querySelectorAll(".fade").forEach(f => f.classList.add("in"));
+    wireDetail(wrap);
+  }, cardRefused);
 }
 
 /* Re-render the open overlay in place, holding the reader where they are.
@@ -633,7 +678,9 @@ function swapMember(id) {
    in a report, which is a long way from where they were working.
 
    Returns false when no overlay is open, so a caller can fall back to a normal
-   screen render without having to know which surface it is on. */
+   screen render without having to know which surface it is on. An open
+   overlay was drawn from a card the store already holds, so there is nothing
+   to wait for here. */
 function refreshDetail() {
   const wrap = document.getElementById("detail");
   const m = wrap && BB.state.detail && API.member(BB.state.detail);
@@ -659,10 +706,20 @@ function wireDetail(wrap) {
   });
 }
 
-function openMember(id, srcTile) {
-  const m = API.member(id);
-  if (!m) return;
+/* Nothing draws until the card is in. One open at a time, so a double tap
+   opens one overlay, and a card that lands after the member has moved to
+   another screen is not drawn over it. */
+let opening = null;
 
+function openMember(id, srcTile) {
+  if (opening) return;
+  const from = BB.state.screen;
+  opening = loadCard(id).then(m => {
+    if (m && BB.state.screen === from) showMember(id, m, srcTile);
+  }, cardRefused).finally(() => { opening = null; });
+}
+
+function showMember(id, m, srcTile) {
   /* Already inside a profile: walk deeper rather than opening a second one. */
   if (document.getElementById("detail")) {
     BB.trail.push(id);
@@ -670,6 +727,11 @@ function openMember(id, srcTile) {
     return;
   }
 
+  /* A redraw while the card loaded may have taken the tile out of the page. */
+  if (srcTile && !document.contains(srcTile)) srcTile = null;
+
+  /* A block left half asked on an earlier visit does not come back armed. */
+  BB.state.blocking = null;
   BB.state.detail = id;
   BB.trail = [id];
   BB.detailSrc = srcTile;
@@ -681,7 +743,8 @@ function openMember(id, srcTile) {
   wrap.id = "detail";
   wrap.setAttribute("role", "dialog");
   wrap.setAttribute("aria-modal", "true");
-  wrap.setAttribute("aria-label", `${fullName(m)}, ${m.role}`);
+  wrap.setAttribute("aria-label", m.kind === "peer" ? m.handle
+    : [fullName(m), m.role].filter(Boolean).join(", "));
   wrap.innerHTML = detailBody(m);
   document.body.appendChild(wrap);
   document.body.style.overflow = "hidden";
@@ -749,7 +812,8 @@ function closeMember(srcTile) {
 
   if (src && target && !reducedMotion()) {
     const dst = target.getBoundingClientRect();
-    const clone = el("div", "flip", esc(API.member(BB.state.detail).initials));
+    const m = API.member(BB.state.detail);
+    const clone = el("div", "flip", esc(m ? m.initials : ""));
     clone.style.cssText =
       `left:${dst.left}px;top:${dst.top}px;width:${dst.width}px;height:${dst.height}px;` +
       `border-radius:20px;font-size:${Math.max(11, dst.width * 0.30)}px;`;

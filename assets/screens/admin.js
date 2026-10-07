@@ -1,12 +1,14 @@
 /* Admin, the broker's desk. Staff only.
 
-   Four lists, all from the live API and none from data.js: the applicants
+   Five lists, all from the live API and none from data.js: the applicants
    waiting at the door, with Approve and Reject on each, the introductions
-   waiting on a release, with Release and Stop on each, the lineage of every
-   seat as a tree, and the membership inquiries from the public form, with
-   Dismiss on each. One is shown at a time behind a segmented control. The
-   screen holds what the API sent in memory for the session and writes none
-   of it anywhere; a reload starts from nothing.
+   waiting on a release, with Release and Stop on each, the members who have
+   been reported, with their reports on each, the lineage of every seat as a
+   tree, with the decisions its standing allows on each, and the membership
+   inquiries from the public form, with Dismiss on each. One is shown at a
+   time behind a segmented control. The screen holds what the API sent in
+   memory for the session and writes none of it anywhere; a reload starts
+   from nothing.
 
    The tab that reaches here is drawn only when BB.auth.isStaff() has said
    yes, and this function asks the same question again on every visit, before
@@ -15,7 +17,7 @@
    the only thing that lets the page draw is the API's own answer, kept in a
    variable this file alone can reach. The API refuses a member on every call
    regardless; the check here is so a member never sees an empty admin page
-   with four 404s behind it. */
+   with five 404s behind it. */
 
 (function () {
   "use strict";
@@ -26,17 +28,19 @@
     tab: "applications",
     apps: { rows: [], error: null },
     queue: { rows: [], error: null },
+    conduct: { rows: [], error: null, fresh: false },
     lineage: { rows: [], error: null, fresh: false },
     inquiries: { rows: [], error: null },
     filter: { sector: "", firm: "", title: "" },
     stopping: null, /* id of the introduction whose Stop is asking for a cause */
     open: new Set(), /* "<introduction id> <member id>" for each card open under a row */
-    busy: null,     /* id of the applicant, introduction, inquiry or card whose call is in flight */
+    reports: new Map(), /* reported member's id -> their reports, for each list open under a row */
+    busy: null,     /* id of the applicant, introduction, inquiry, card or member whose call is in flight */
     notice: null    /* the server's own sentence after a refused decision */
   };
 
   const TABS = [["applications", "Applications"], ["introductions", "Introductions"],
-    ["lineage", "Lineage"], ["inquiries", "Inquiries"]];
+    ["conduct", "Conduct"], ["lineage", "Lineage"], ["inquiries", "Inquiries"]];
 
   const isAdmin = () => BB.state.screen === "admin";
 
@@ -68,14 +72,17 @@
   /* The lineage is read only when the tab on screen needs a name from it.
      Every read of it records a "lineage" look on every member's own trail,
      so reading it on each visit would fill every trail with looks nobody
-     took. Applications needs it for a referrer and Introductions for both
-     parties, and only for an id it does not already hold. The Lineage tab
-     needs it once after each load, because the tree is what it shows. */
+     took. Applications needs it for a referrer, Introductions for both
+     parties and Conduct for each reported member and each reporter, and only
+     for an id it does not already hold. The Lineage tab needs it once after
+     each load, because the tree is what it shows. */
   function needsLineage() {
     if (S.tab === "lineage") return !S.lineage.fresh;
     const known = new Set(S.lineage.rows.map(r => r.id));
     const ids = S.tab === "applications" ? S.apps.rows.map(r => r.referrer_id)
       : S.tab === "introductions" ? S.queue.rows.flatMap(r => [r.requester_id, r.target_id])
+      : S.tab === "conduct" ? S.conduct.rows.map(r => r.subject_id)
+        .concat(Array.from(S.reports.values()).flat().map(r => r.reporter_id))
       : [];
     return ids.some(id => id && !known.has(id));
   }
@@ -86,13 +93,27 @@
     S.lineage.fresh = !S.lineage.error;
   }
 
+  /* The conduct index is read only while its tab is up, once after each
+     load, for the lineage's reason: every read of it records a conduct look
+     at every member it lists. Those looks are not on the member's own trail,
+     but a look nobody took is still a false record. */
+  const needsConduct = () => S.tab === "conduct" && !S.conduct.fresh;
+
+  async function conduct() {
+    if (!needsConduct()) return;
+    await fetchInto(S.conduct, "/api/broker/conduct");
+    S.conduct.fresh = !S.conduct.error;
+  }
+
   async function load() {
     S.loading = true;
     S.lineage.fresh = false;
+    S.conduct.fresh = false;
+    S.reports.clear();
     if (isAdmin()) render();
     /* The other three every time, whichever tab is up, so a switch of tab
        does not wait on the network for them. None of the three is a look at
-       every member. */
+       every member, nor at every member reported. */
     await Promise.all([
       fetchInto(S.apps, "/api/broker/applications"),
       fetchInto(S.queue, "/api/broker/queue"),
@@ -100,6 +121,7 @@
     ]);
     /* After the lists, so the question is asked of the rows that came back
        and of whichever tab is up by then. */
+    await conduct();
     await names();
     S.loading = false;
     /* The broker may have moved on while the request was out; drawing this
@@ -160,6 +182,77 @@
     if (isAdmin()) render();
   }
 
+  /* One member's reports, read only when asked for and read again on each
+     opening, so what is shown is what is on file. Each read is a conduct
+     look recorded with this reason, which the member's own trail leaves out.
+     The reporters' names come from the lineage, which may need reading for a
+     reporter who joined after it was last read. */
+  const REPORTS_REASON = "conduct review";
+
+  async function reports(memberId) {
+    if (S.reports.has(memberId)) { S.reports.delete(memberId); render(); return; }
+    S.busy = memberId;
+    S.notice = null;
+    render();
+    try {
+      const rows = await BB.api("/api/conduct/reports/" + encodeURIComponent(memberId)
+        + "?reason=" + encodeURIComponent(REPORTS_REASON));
+      S.reports.set(memberId, Array.isArray(rows) ? rows : []);
+      await names();
+    } catch (e) {
+      S.notice = e && e.status === 404 ? "Those reports are no longer on file."
+        : e && e.detail ? e.detail : "Could not load the reports.";
+    }
+    S.busy = null;
+    if (isAdmin()) render();
+  }
+
+  /* The decisions a lineage node can offer, by the seat's standing, as
+     LEGAL_FROM in the API's app/lifecycle.py allows them. A pending seat is
+     decided on Applications, and departed and banned have no way out, so
+     those three offer nothing. `ask` is the prompt for a reason (D11):
+     Suspend, Remove and Ban each need one, Reinstate and Thaw take none. */
+  const DECISIONS = {
+    suspend: { label: "Suspend", ask: "Reason for suspending",
+      warn: "They are signed out at once, and only Reinstate lets them back in." },
+    reinstate: { label: "Reinstate" },
+    thaw: { label: "Thaw" },
+    depart: { label: "Remove", ask: "Reason for removing",
+      warn: "A removal cannot be undone." },
+    ban: { label: "Ban", ask: "Reason for banning",
+      warn: "A ban cannot be undone." }
+  };
+  const OFFERED = {
+    active: ["suspend", "depart", "ban"],
+    suspended: ["reinstate", "depart", "ban"],
+    frozen: ["thaw", "suspend", "depart", "ban"]
+  };
+  const MAX_REASON = 200; /* the API's MAX_REASON, refused there with a 422 */
+
+  /* One POST through decide(), then the store's copies that the decision
+     makes stale: the member's card, whose standing has changed, and the
+     founder's own introductions, which a removal or a ban ends if he is one
+     of the two. */
+  async function act(memberId, decision, name) {
+    const what = DECISIONS[decision];
+    let payload;
+    if (what.ask) {
+      const reason = window.prompt(what.ask + " " + (name || "this member") + ". " + what.warn);
+      if (reason === null) return;
+      const text = reason.trim();
+      if (!text || text.length > MAX_REASON) {
+        S.notice = text ? "A reason can be at most " + MAX_REASON + " characters."
+          : "A reason is needed for that decision.";
+        render();
+        return;
+      }
+      payload = { reason: text };
+    }
+    await decide(memberId, "/api/members/" + encodeURIComponent(memberId) + "/" + decision,
+      payload, "That seat is no longer on the list.");
+    BB.store.invalidate(["member:" + memberId, "introductions"]);
+  }
+
   /* Dismissing an inquiry is one DELETE and a reload. The row is gone from
      the API's list whether or not the DELETE was refused, so the list is
      reloaded either way and the server's sentence, if any, shown above it. */
@@ -188,12 +281,13 @@
     if (kind === "tab") {
       if (!TABS.some(([key]) => key === b.dataset.tab)) return;
       S.tab = b.dataset.tab;
-      /* A load in flight asks for the names of whichever tab is up when its
-         lists land, so only a switch between loads asks here. */
-      if (S.loading || !needsLineage()) { render(); return; }
+      /* A load in flight asks for the index and the names of whichever tab
+         is up when its lists land, so only a switch between loads asks here.
+         The names are asked for after the index, whose rows they are for. */
+      if (S.loading || !(needsConduct() || needsLineage())) { render(); return; }
       S.loading = true;
       render();
-      names().then(() => { S.loading = false; if (isAdmin()) render(); });
+      conduct().then(names).then(() => { S.loading = false; if (isAdmin()) render(); });
       return;
     }
     if (S.busy) return;
@@ -205,6 +299,15 @@
 
     if (kind === "card") {
       card(b.dataset.intro || "", b.dataset.id || "");
+      return;
+    }
+    if (kind === "reports") {
+      reports(b.dataset.id || "");
+      return;
+    }
+    if (kind === "decide") {
+      if (!Object.keys(DECISIONS).includes(b.dataset.decision)) return;
+      act(b.dataset.id || "", b.dataset.decision, b.dataset.name || "");
       return;
     }
     if (kind === "release") {
@@ -316,6 +419,20 @@
     return out.join("");
   }
 
+  /* The founder's own node offers nothing, because the API refuses a
+     suspension, a removal or a ban taken about the caller's own seat. His is
+     the one staff seat, so the node is known by its role. */
+  const decisions = r => {
+    const offered = r.role === "founder" ? [] : OFFERED[r.status] || [];
+    if (!offered.length) return "";
+    const off = S.busy ? " disabled" : "";
+    return `
+      <span class="row" style="margin-left:auto">${offered.map(d => `
+        <button class="btn sm${d === "depart" || d === "ban" ? " danger" : ""}" data-admin="decide" data-decision="${d}"
+          data-id="${esc(r.id)}" data-name="${esc(r.name)}"${off}>${DECISIONS[d].label}</button>`).join("")}
+      </span>`;
+  };
+
   const node = (r, depth, invited) => `
     <div class="lineage-node" style="--depth:${depth}">
       <span class="lineage-name">${r.name ? esc(r.name) : '<span class="muted">departed seat</span>'}</span>
@@ -323,7 +440,7 @@
       <span class="small muted">${r.approved_at
         ? "Joined " + esc(day(r.approved_at))
         : "Applied " + esc(day(r.created_at))}</span>
-      <span class="small muted tabular">Invited ${invited}</span>
+      <span class="small muted tabular">Invited ${invited}</span>${decisions(r)}
     </div>`;
 
   function lineage() {
@@ -484,6 +601,56 @@
       </div>`).join("")}</div>`;
   }
 
+  /* ------------------------------------------------------------ conduct --- */
+
+  const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
+
+  /* Oldest first, as the API sends them. The reason reads in the words the
+     member chose it by (REPORT_REASONS in data.js), and the detail as they
+     wrote it. */
+  const reportsOf = (id, byId) => {
+    const rows = S.reports.get(id);
+    if (!rows) return "";
+    if (!rows.length) return `
+            <div class="small muted" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">No reports on file.</div>`;
+    return rows.map((x, i) => `
+            <div class="small" style="margin-top:10px;${i ? "" : "padding-top:10px;border-top:1px solid var(--line)"}">
+              <div><b>${esc(REPORT_REASONS[x.reason] || x.reason)}</b></div>
+              <div class="muted">${who(x.reporter_id, byId)} · ${esc(day(x.at))}</div>
+              ${x.detail ? `<div class="muted" style="margin-top:4px;white-space:pre-wrap;overflow-wrap:anywhere">${esc(x.detail)}</div>` : ""}
+            </div>`).join("");
+  };
+
+  /* Most recently reported first, as the API sends them. One report is
+     never acted on; the signal is two members saying the same thing, so a
+     member reported by two or more is drawn inverted. */
+  function conductList() {
+    const c = S.conduct;
+    if (c.error) return `<div class="empty"><b>Could not load the reports.</b>${esc(c.error)}</div>`;
+    if (S.loading && (!c.rows.length || needsLineage())) return `<p class="admin-state muted">Loading</p>`;
+    if (!c.rows.length) return `<div class="empty">Nobody has been reported.</div>`;
+
+    const byId = new Map(S.lineage.rows.map(r => [r.id, r.name]));
+    const off = S.busy ? " disabled" : "";
+    return `<div class="stack">${c.rows.map(r => `
+      <div class="card admin-row">
+        <div class="spread" style="align-items:flex-start">
+          <div class="grow">
+            <div class="admin-name">${who(r.subject_id, byId)}</div>
+            <div style="margin-top:6px"><span class="pill ${r.reporters >= 2 ? "solid" : "plain"}">${esc(
+              plural(r.reports, "report", "reports") + " from " + plural(r.reporters, "member", "members"))}</span></div>
+            <div class="small muted" style="margin-top:6px">${esc(r.reports > 1
+              ? since("First reported", r.first_at) + " · " + since("Latest", r.latest_at)
+              : since("Reported", r.first_at))}</div>${reportsOf(r.subject_id, byId)}
+          </div>
+          <div class="row admin-acts">
+            <button class="btn sm" data-admin="reports" data-id="${esc(r.subject_id)}"
+              aria-expanded="${S.reports.has(r.subject_id)}"${off}>${S.reports.has(r.subject_id) ? "Hide reports" : "Reports"}</button>
+          </div>
+        </div>
+      </div>`).join("")}</div>`;
+  }
+
   /* --------------------------------------------------------------- page --- */
 
   const tabs = () => `
@@ -500,6 +667,12 @@
     <span class="eyebrow">${S.queue.rows.length} waiting</span>
   </div>
   ${introductionList()}`;
+    if (S.tab === "conduct") return `
+  <div class="card-head">
+    <h2>Conduct</h2>
+    <span class="eyebrow">${S.conduct.rows.length} reported</span>
+  </div>
+  ${conductList()}`;
     if (S.tab === "lineage") return `
   <div class="card-head">
     <h2>Lineage</h2>
@@ -525,9 +698,9 @@
     <div>
       <h1>Admin</h1>
       <p class="sub">Who is waiting at the door, which introductions are
-        waiting on you, who invited whom, and who has asked to be let in.
-        Every decision here is taken by the API and recorded against your
-        seat.</p>
+        waiting on you, who has been reported, who invited whom, and who has
+        asked to be let in. Every decision here is taken by the API and
+        recorded against your seat.</p>
     </div>
     <button class="btn sm" data-admin="refresh"${S.loading ? " disabled" : ""}>${S.loading ? "Loading" : "Refresh"}</button>
   </div>
