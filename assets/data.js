@@ -7,6 +7,10 @@
 
    The founder is real. There are no other records: the network
    fills with real members or stays honestly empty.
+
+   Home no longer reads any of it. API.me() and the live adapters below it
+   read the API's answers through BB.store; the rest stays mock until its
+   screen is connected.
    ========================================================================== */
 
 const DB = {};
@@ -242,8 +246,76 @@ DB.rampDark = { 7: "#FFFFFF", 6: "#D6D6D6", 5: "#AFAFAF", 4: "#8A8A8A",
 /* Mirrors the shape a real endpoint would return. Swap the bodies for fetch()
    and nothing above this line changes. */
 
+/* "Alice Arbery" is first "Alice", last "Arbery", initials "AA". Split on the
+   first space only, so a surname with a space in it stays whole. */
+function splitName(name) {
+  const s = String(name || "").trim();
+  const i = s.indexOf(" ");
+  const first = i === -1 ? s : s.slice(0, i);
+  const last = i === -1 ? "" : s.slice(i + 1).trim();
+  return { first, last, initials: (first.charAt(0) + last.charAt(0)).toUpperCase() };
+}
+
+/* "7 Oct 2026", as Admin writes a date. */
+const shortDate = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
 const API = {
-  me:        () => DB.members.find(m => m.id === DB.me),
+  /* ---- Live, through BB.store (store.js). These read what the store holds
+     and fetch nothing: a screen that calls one names its key in .needs, so
+     the data is there before the screen draws. ---------------------------- */
+
+  /* SelfView for a member, StaffView for the founder seat. The founder seat
+     is shown under the trading name whatever the seat itself is called,
+     because no screen names the founder. */
+  me() {
+    const v = BB.store.peek("me");
+    if (!v) return undefined;
+    const founder = v.role === "founder";
+    return {
+      id: v.id,
+      ...splitName(founder ? "Blackbook London" : v.name),
+      role: v.role_title, firm: v.firm, city: v.city, sector: v.sector,
+      founder,
+      since: shortDate.format(new Date(v.member_since || v.created_at)),
+      invitesLeft: v.invitations_left,
+      /* For the Asks screen, still on the mock, which reads the member's
+         gives off this record. */
+      gives: API.gives()
+    };
+  },
+
+  /* The member's one open ask, or null. The API lists asks oldest first, so
+     if more than one is open the newest is the one shown. */
+  ask() {
+    const open = (BB.store.peek("asks") || []).filter(a => a.state === "open");
+    const a = open[open.length - 1];
+    if (!a) return null;
+    return {
+      id: a.id, category: a.category, label: a.category_label, title: a.title,
+      age: Math.max(0, Math.floor((Date.now() - Date.parse(a.created_at)) / 86400000))
+    };
+  },
+
+  /* `text` and `type` keep the mock's names, which Home, Gives and the
+     screens still on the mock all read. */
+  gives: () => (BB.store.peek("gives") || []).map(g => ({
+    id: g.id, category: g.category, label: g.category_label,
+    text: g.description, type: g.give_type, confidence: g.confidence
+  })),
+
+  /* The two closed lists, values and the words beside them, as served. */
+  categories: () => BB.store.peek("categories"),
+
+  /* Confirmed ties, as ConnectionView: name, role and firm, and no strength.
+     ties() below stays the mock for the Network screen until vouches are
+     connected. */
+  connections: () => (BB.store.peek("ties") || []).map(c => ({
+    id: c.id, ...splitName(c.name),
+    role: c.role_title, firm: c.firm, city: c.city, sector: c.sector
+  })),
+
+  /* ---- Mock ------------------------------------------------------------ */
+
   member:    id => DB.members.find(m => m.id === id),
   members:   () => DB.members.filter(m => m.id !== DB.me),
   ties:      () => DB.ties.map(t => ({ ...t, member: API.member(t.id) })),
@@ -258,38 +330,6 @@ const API = {
       .filter(m => m.ask && m.askOpen !== false)
       .map(m => ({ member: m, canHelp: myGiveTypes.has(m.askType) }))
       .sort((a, b) => (b.canHelp - a.canHelp) || (a.member.askAge - b.member.askAge));
-  },
-
-  /* Two different questions, and conflating them is how the counts went wrong:
-       askersFor , how many members are ASKING for this type (what a give is worth)
-       giversOf  , how many members can GIVE this type (what an ask can expect)
-     Both exclude the viewer: your own record is not a match for itself. */
-  askersFor(type) {
-    return DB.members.filter(m =>
-      m.id !== DB.me && m.ask && m.askOpen !== false && m.askType === type).length;
-  },
-  giversOf(type) {
-    return DB.members.filter(m => m.id !== DB.me && m.gives.some(g => g.type === type)).length;
-  },
-
-  /* The four numbers on Home, derived rather than written down.
-
-     They used to be hardcoded: 19 intros made, 6 received, 3.2x ratio. That was
-     fine while the record belonged to an invented person. It is not fine now,
-     and it was actively wrong on day one, where a member who had just joined
-     was shown nineteen introductions they had never made, sitting next to a
-     truthful zero connections. */
-  standing() {
-    const made = DB.intros.filter(i => i.direction === "offered" && i.state === "released").length;
-    const received = DB.intros.filter(i => i.direction !== "offered" && i.state === "released").length;
-    const gives = API.me().gives.length;
-    const asks = API.me().ask && API.me().askOpen !== false ? 1 : 0;
-    return {
-      connections: DB.ties.length,
-      made, received, gives, asks,
-      /* No ask yet means no ratio, not a division by zero dressed as a number. */
-      ratio: asks ? (gives / asks).toFixed(1) + "×" : "–"
-    };
   },
 
   /* People your connections can reach who you cannot reach yourself.
@@ -326,29 +366,6 @@ const API = {
 
   /* ---- Mutations. In the real build each of these is one request; here they
      change DB in place so the prototype behaves rather than pretends. ------ */
-
-  setAsk(text, type) {
-    const me = API.me();
-    me.ask = text.trim();
-    me.askType = type || me.askType;
-    me.askAge = 0;
-    me.askOpen = !!me.ask;
-    return me;
-  },
-
-  addGive(text, type) {
-    const me = API.me();
-    me.gives.push({ text: text.trim(), type, confidence: 5 });
-    return me.gives[me.gives.length - 1];
-  },
-  editGive(i, text) {
-    const me = API.me();
-    if (me.gives[i]) me.gives[i].text = text.trim();
-  },
-  removeGive(i) {
-    const me = API.me();
-    return me.gives.splice(i, 1)[0];
-  },
 
   /* Passing an ask sends it one hop into your own network. They see the ask,
      never who asked, so all that is recorded here is that it happened. */
@@ -485,53 +502,6 @@ const API = {
     return true;
   },
   reportedByMe: id => DB.reports.some(r => r.about === id),
-
-  /* Everything held about the member, which is what "Show me everything" has
-     to be able to produce on demand under UK GDPR Article 15. */
-  exportMe() {
-    const me = API.me();
-    return {
-      exported: new Date().toISOString(),
-      you: { name: `${me.first} ${me.last}`, role: me.role, firm: me.firm,
-             city: me.city, sector: me.sector, subSector: me.sub,
-             verified: me.verified, referredBy: me.referredBy,
-             invitations: `${me.invitesLeft} of ${me.invitesTotal} unspent` },
-      whatYouCanOpen: me.gives.map(g => ({ text: g.text, type: DB.types[g.type] })),
-      whatYouAskedFor: me.ask ? { text: me.ask, type: DB.types[me.askType] } : null,
-      achievements: me.achievements,
-      shownOnlyToCloseConnections: me.closed || [],
-      peopleYouNamed: DB.ties.map(t => ({
-        name: `${API.member(t.id).first} ${API.member(t.id).last}`,
-        howFarYouSaidYouWouldGo: t.strength,
-        note: "Your vouch, 1 to 7. Never shown to them." })),
-      closeCircle: DB.circle.map(id =>
-        `${API.member(id).first} ${API.member(id).last}`),
-      firmsYouBlocked: DB.blocks,
-      /* Your own reports come back to you because you wrote them. Reports made
-         about you by other people do not appear here and never will: releasing
-         them would identify the person who filed one, which is the whole reason
-         anybody files one. */
-      conductYouReported: DB.reports.map(r => ({
-        about: `${API.member(r.about).first} ${API.member(r.about).last}`,
-        reason: DB.reportReasons[r.reason],
-        detail: r.detail || null,
-        when: r.when,
-        note: "They were not told. Kept for 24 months, then deleted."
-      })),
-      introductions: DB.intros.map(i => ({
-        with: `${API.member(i.with).first} ${API.member(i.with).last}`,
-        direction: i.direction, state: i.state, when: i.when,
-        note: "Deleted 30 days after the introduction closes." })),
-      messagesWithUs: DB.threads.map(t => ({
-        subject: t.subject, when: t.when, messages: t.messages.length })),
-      notHeld: [
-        "No browsing history.",
-        "No record of who searched for you.",
-        "No conversation between you and another member. We never see those.",
-        "Nothing at all about people you know who are not members. Not a name, not a firm, not a note."
-      ]
-    };
-  },
 
   /* Search anonymises STRANGERS, not everyone.
      Veiling someone whose name you already have is theatre, and theatre is

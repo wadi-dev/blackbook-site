@@ -53,6 +53,136 @@
   if (BB.auth) BB.auth.ready().then(() => { render(); landed(); }, () => {});
   else { render(); landed(); }
 
+  /* The server's sentence for a refused write. A 422 arrives as a list of
+     field errors, kept on serverDetail (api.js), and the first one's message
+     is the sentence. A 404 shows the caller's own sentence instead, because
+     404 bodies differ by route. */
+  const said = (err, missing) => {
+    if (err && err.status === 404) return missing;
+    const first = err && Array.isArray(err.serverDetail) && err.serverDetail[0];
+    return (first && first.msg) || (err && err.detail) || "Something went wrong.";
+  };
+
+  /* A list the server has just changed one row of: the row replaces the one
+     with its id, or goes on the end, where the API lists the newest. */
+  const putRow = (list, row) => list.some(x => x.id === row.id)
+    ? list.map(x => x.id === row.id ? row : x) : [...list, row];
+
+  /* Your ask: one open ask. Saving is a PATCH when one is open and a POST
+     when none is; closing is a PATCH to archived. Urgency is never sent. One
+     write at a time, so a double tap is one request, and the toast waits for
+     the server. The answer goes straight into the store's list, so the next
+     Save knows the ask is open even before the list is fetched again. On a
+     refusal the editor stays as it was, text and all. */
+  function sendAsk(what) {
+    const open = API.ask();
+    let body;
+    if (what === "close") {
+      if (!open) return;
+      body = { state: "archived" };
+    } else {
+      const title = document.getElementById("ask-text").value;
+      const category = document.getElementById("ask-type").value;
+      if (!title.trim()) { toast("An ask cannot be empty."); return; }
+      if (!category) { toast("Choose which type it is."); return; }
+      body = { title, category };
+    }
+    const sent = BB.store.write("ask", () => open
+      ? BB.api("/api/asks/" + encodeURIComponent(open.id), { method: "PATCH", body })
+      : BB.api("/api/asks", { method: "POST", body }),
+      { update: { asks: putRow }, invalidate: ["asks"] });
+    if (!sent) return;
+    sent.then(() => {
+      BB.state.editAsk = false;
+      toast(what === "close" ? "Ask closed. Nobody is notified." : "Ask saved. Nobody is notified.");
+      if (BB.state.screen === "home") render();
+    }, err => toast(said(err, "That ask could not be found. Reload and try again.")));
+  }
+
+  /* A give's type is not asked for. Judgement and operating experience are
+     their own kind, and every other category is a door. */
+  const giveType = category =>
+    ({ judgement: "judgment", operating_experience: "operator" })[category] || "door";
+
+  /* Gives, addressed by id: "new-give" for the one being added. Adding is a
+     POST, editing a PATCH of every field on the form, removing a DELETE. One
+     write per give at a time, the toast waits for the server, and the answer
+     goes straight into the store's list, as the ask's does. On a refusal the
+     form stays as it was, text and all. */
+  function sendGive(what, id) {
+    let send;
+    if (what === "remove") {
+      send = () => BB.api("/api/gives/" + encodeURIComponent(id), { method: "DELETE" });
+    } else {
+      const description = document.getElementById("give-text").value;
+      const category = document.getElementById("give-type").value;
+      const confidence = Number(document.getElementById("give-confidence").value);
+      if (!description.trim()) { toast("A give needs to say what you can open."); return; }
+      if (!category) { toast("Choose which type it is."); return; }
+      const body = { category, description, give_type: giveType(category), confidence };
+      send = id === "new-give"
+        ? () => BB.api("/api/gives", { method: "POST", body })
+        : () => BB.api("/api/gives/" + encodeURIComponent(id), { method: "PATCH", body });
+    }
+    const gone = what === "remove" && (BB.store.peek("gives") || []).find(g => g.id === id);
+    const kept = what === "remove" ? list => list.filter(g => g.id !== id) : putRow;
+    const sent = BB.store.write(id, send, { update: { gives: kept }, invalidate: ["gives"] });
+    if (!sent) return;
+    sent.then(() => {
+      /* Closes the form that was saved, and only that one. */
+      if (BB.state.editGive === (id === "new-give" ? "new" : id)) BB.state.editGive = null;
+      if (what !== "remove") toast(id === "new-give" ? "Added." : "Updated.");
+      else if (!gone) toast("Removed.");
+      else {
+        const t = gone.description;
+        toast(`Removed "${t.slice(0, 32)}${t.length > 32 ? "…" : ""}".`);
+      }
+      if (BB.state.screen === "gives") render();
+    }, err => toast(said(err, "That give could not be found. Reload and try again.")));
+  }
+
+  /* Your data, fetched each time it is asked for and kept in the screen's
+     state rather than the store: an export is a record of one moment.
+     BB.store.write is used for its guard, one request per button at a time,
+     and invalidates nothing. Show asks for the export and the audit trail
+     together; Hide forgets both. */
+  function showData() {
+    if (BB.state.myData) { BB.state.myData = null; render(); return; }
+    const sent = BB.store.write("my-data", () =>
+      Promise.all([BB.api("/api/me/export"), BB.api("/api/me/audit")]));
+    if (!sent) return;
+    sent.then(([exported, audit]) => {
+      BB.state.myData = { exported, audit };
+      if (BB.state.screen === "settings") render();
+    }, err => toast(said(err, "Your data could not be found. Reload and try again.")));
+  }
+
+  /* The file is the export exactly as the API answered it, built here. */
+  function downloadData() {
+    const sent = BB.store.write("my-data-download", () => BB.api("/api/me/export"));
+    if (!sent) return;
+    sent.then(exported => {
+      const blob = new Blob([JSON.stringify(exported, null, 2)], { type: "application/json" });
+      const a = el("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "blackbook-my-data.json";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      toast("Downloaded.");
+    }, err => toast(said(err, "Your data could not be found. Reload and try again.")));
+  }
+
+  /* Leaving is erasure. The session ends only once the server has erased
+     the record; on a refusal the member stays where they were. */
+  function eraseMe() {
+    const sent = BB.store.write("leave", () => BB.api("/api/me/erase", { method: "POST" }));
+    if (!sent) return;
+    sent.then(() => {
+      BB.store.clear();
+      BB.auth.signOut();
+    }, err => toast(said(err, "Your membership could not be found. Reload and try again.")));
+  }
+
   /* Delegated once, at the document level, so it survives every re-render. */
   document.addEventListener("click", e => {
     /* An open menu closes on any click that lands outside it. The click is
@@ -102,6 +232,10 @@
       BB.state.menuPane = null; BB.state.menuAnim = null;
       render(); return;
     }
+
+    /* Try again on the render gate's error box (core.js). A render asks the
+       store again for whatever the screen still lacks. */
+    if (e.target.closest("[data-store-retry]")) { render(); return; }
 
     /* ---- Introductions: accept, and the two kinds of decline -------------- */
     const ia = e.target.closest("[data-intro-accept]");
@@ -192,15 +326,9 @@
     const ask = e.target.closest("[data-ask]");
     if (ask) {
       const what = ask.dataset.ask;
+      if (what === "save" || what === "close") { sendAsk(what); return; }
       if (what === "edit") BB.state.editAsk = true;
       if (what === "cancel") BB.state.editAsk = false;
-      if (what === "save") {
-        const text = document.getElementById("ask-text").value;
-        if (!text.trim()) { toast("An ask cannot be empty."); return; }
-        API.setAsk(text, document.getElementById("ask-type").value);
-        BB.state.editAsk = false;
-        toast("Ask updated. Nobody is notified.");
-      }
       render(); return;
     }
 
@@ -208,30 +336,10 @@
     const give = e.target.closest("[data-give]");
     if (give) {
       const what = give.dataset.give;
+      if (what === "save" || what === "remove") { sendGive(what, give.dataset.id); return; }
       if (what === "new") BB.state.editGive = "new";
-      if (what === "edit") BB.state.editGive = Number(give.dataset.i);
+      if (what === "edit") BB.state.editGive = give.dataset.id;
       if (what === "cancel") BB.state.editGive = null;
-      if (what === "remove") {
-        const gone = API.removeGive(Number(give.dataset.i));
-        BB.state.editGive = null;
-        toast(`Removed "${gone.text.slice(0, 32)}${gone.text.length > 32 ? "…" : ""}".`);
-      }
-      if (what === "save") {
-        const text = document.getElementById("give-text").value;
-        const type = document.getElementById("give-type").value;
-        if (!text.trim()) { toast("A give needs to say what you can open."); return; }
-        if (give.dataset.i === "new") {
-          API.addGive(text, type);
-          const n = API.me().gives.length;
-          toast(n < 4 ? `Added. You have ${n} of four.` : "Added. You have four.");
-        } else {
-          const i = Number(give.dataset.i);
-          API.editGive(i, text);
-          API.me().gives[i].type = type;
-          toast("Updated.");
-        }
-        BB.state.editGive = null;
-      }
       render(); return;
     }
 
@@ -434,29 +542,24 @@
     /* ---- Your data -------------------------------------------------------- */
     const data = e.target.closest("[data-data]");
     if (data) {
-      if (data.dataset.data === "show") { BB.state.showData = !BB.state.showData; render(); return; }
-      /* A real Article 15 export, produced client-side so nothing leaves. */
-      const blob = new Blob([JSON.stringify(API.exportMe(), null, 2)],
-        { type: "application/json" });
-      const a = el("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "blackbook-my-data.json";
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-      toast("Downloaded everything we hold about you.");
+      if (data.dataset.data === "show") showData();
+      else downloadData();
       return;
     }
 
-    /* ---- Leaving ---------------------------------------------------------- */
+    /* ---- Signing out and leaving ------------------------------------------ */
+    if (e.target.closest("[data-sign-out]")) {
+      BB.store.clear();
+      BB.auth.signOut();
+      return;
+    }
+
     const leave = e.target.closest("[data-leave]");
     if (leave) {
       const what = leave.dataset.leave;
+      if (what === "confirm") { eraseMe(); return; }
       if (what === "ask") BB.state.confirmLeave = true;
       if (what === "cancel") BB.state.confirmLeave = false;
-      if (what === "confirm") {
-        BB.state.confirmLeave = false;
-        toast("In the real build this deletes your account. Nothing was deleted here.");
-      }
       render(); return;
     }
 
@@ -506,6 +609,10 @@
   /* Search types straight into the screen rather than on submit, one field,
      no operators, no button. */
   document.addEventListener("input", e => {
+    if (e.target.id === "ask-text") {
+      const count = document.getElementById("ask-count");
+      if (count) count.textContent = askCount(e.target.value);
+    }
     if (e.target.id === "q") {
       BB.state.query = e.target.value;
       const host = document.getElementById("screen");

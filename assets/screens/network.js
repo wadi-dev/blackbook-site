@@ -332,3 +332,4 @@ BB.screens.network = function () {
     </div>
   </div>`;
 };
+BB.screens.network.needs = ["me"];

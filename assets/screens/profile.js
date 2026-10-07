@@ -7,7 +7,6 @@
 
 BB.screens._profile = function (m) {
   const ties = API.ties().filter(t => t.id !== m.id).slice(0, 5);
-  const givers = API.giversOf(m.askType);
 
   return `
   <div class="cols a" style="padding-top:26px">
@@ -72,9 +71,6 @@ BB.screens._profile = function (m) {
           <span class="eyebrow">${esc(DB.types[m.askType])}</span>
         </div>
         <div class="askbox"><p>${esc(m.ask)}</p></div>
-        ${givers ? `<p class="small muted" style="margin-top:12px">
-          <b style="color:var(--text)">${givers} member${givers === 1 ? "" : "s"}</b>
-          could satisfy this.</p>` : ""}
 
         <div class="row" style="margin-top:18px">
           <button class="btn primary block" data-act="help">I can help with this</button>
@@ -217,9 +213,19 @@ function reportBlock(m) {
 }
 
 
-/* Settings, preferences, visibility, membership. */
+/* Settings, preferences, membership, your data and leaving. */
 
 BB.screens.settings = function () {
+  const me = API.me();
+  /* What "Show me everything" fetched (boot.js), or null: the export, and
+     the member's own audit trail, newest first. */
+  const data = BB.state.myData;
+  /* The API names the seat that looked by its role, never the person. Every
+     staff seat is shown under the trading name. */
+  const opened = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short",
+    year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const trail = { view_member: "Opened by Blackbook London",
+                  credential_linked: "You signed in for the first time" };
   const theme = document.documentElement.dataset.themePreference
     || document.documentElement.dataset.theme || "auto";
   const density = document.documentElement.dataset.density || "comfortable";
@@ -248,27 +254,6 @@ BB.screens.settings = function () {
       </div>
 
       <div class="card">
-        <div class="card-head"><h2>Visibility</h2></div>
-        <div class="set-row">
-          <div><div class="t">Blocked from seeing you</div>
-            <div class="d">Absolute and silent. They are never told, and they never
-              appear in your search results either.</div></div>
-          <div class="row" style="flex-wrap:wrap;justify-content:flex-end">
-            ${DB.blocks.map(b => `
-              <button class="pill plain" data-unblock="${esc(b)}"
-                title="Stop blocking ${esc(b)}">${esc(b)} ✕</button>`).join("")
-              || '<span class="small muted">Nobody is blocked.</span>'}
-            ${BB.state.addBlock ? `
-              <input type="text" id="block-firm" placeholder="Firm name"
-                autocomplete="off" style="max-width:180px">
-              <button class="btn sm primary" data-block="save">Add</button>
-              <button class="btn sm quiet" data-block="cancel">Cancel</button>`
-            : `<button class="btn sm" data-block="new">Add</button>`}
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
         <div class="card-head"><h2>What we never do</h2></div>
         <p class="small muted" style="margin-bottom:16px;line-height:1.6">
           Not settings. These do not have a switch, and there is no version of
@@ -276,9 +261,9 @@ BB.screens.settings = function () {
         </p>
         <ul style="list-style:none">
           ${[["Your name is never shown in search.",
-              "Another member sees your seat, your sector and how far away you are. Nothing else, until you have agreed."],
+              "Another member sees your role, your sector and your city. Nothing else, until you have agreed."],
              ["How strongly you vouch is never shown to them.",
-              "The scale is your own record. The only thing that ever travels is a close-circle invitation, and only because you sent it."],
+              "The scale is your own record."],
              ["A block is never disclosed.",
               "The person you blocked is not told, and a searcher is never shown who is hidden from them."],
              ["We never see a conversation between members.",
@@ -299,12 +284,13 @@ BB.screens.settings = function () {
           <div><div class="t">Invitations</div>
             <div class="d">Spend them on someone you would defend in a room you are not in.
               Your name stays attached. Inviting happens from your Network page.</div></div>
-          <span class="pill">${API.me().invitesLeft} of ${API.me().invitesTotal}</span>
+          <span class="pill">${me.invitesLeft} left</span>
         </div>
 
         <div class="set-row">
-          <div><div class="t">Referred by</div>
-            <div class="d">${esc(API.me().referredBy)}.</div></div>
+          <div><div class="t">Sign out</div>
+            <div class="d">Ends your session in this browser.</div></div>
+          <button class="btn sm" data-sign-out>Sign out</button>
         </div>
       </div>
 
@@ -312,35 +298,54 @@ BB.screens.settings = function () {
         <div class="card-head"><h2>Your data</h2></div>
         <p class="small muted" style="line-height:1.65">
           We hold little and show other members less. Introduction records are deleted
-          after 30 days. You can ask for everything we hold at any time, including
-          anything we have written about you.
+          30 days after the introduction ends. Show me everything lists what you have
+          given us and each time we opened your record. Our vetting notes are not included.
         </p>
         <div class="row" style="margin-top:14px">
-          <button class="btn sm" data-data="show">${BB.state.showData ? "Hide" : "Show me everything"}</button>
-          <button class="btn sm quiet" data-data="download">Download</button>
+          <button class="btn sm" data-data="show" data-id="my-data">${data ? "Hide" : "Show me everything"}</button>
+          <button class="btn sm quiet" data-data="download" data-id="my-data-download">Download</button>
         </div>
-        ${BB.state.showData ? `
-          <pre class="dump">${esc(JSON.stringify(API.exportMe(), null, 2))}</pre>` : ""}
+        ${data ? `
+          <pre class="dump">${esc(JSON.stringify(data.exported, null, 2))}</pre>
+          <h3 style="font-weight:650;font-size:13.5px;margin-top:18px">Who has opened your record</h3>
+          ${data.audit.length ? `
+          <ul style="list-style:none;max-height:340px;overflow:auto">
+            ${data.audit.map((r, i) => `
+            <li style="padding:10px 0;${i ? "border-top:1px solid var(--line)" : ""}">
+              <span style="font-size:13.5px;display:block">${esc(trail[r.action] || r.action)}</span>
+              <span class="small muted tabular">${esc(opened.format(new Date(r.at)))}${
+                r.action === "view_member" && r.reason ? ` · Reason given: ${esc(r.reason)}` : ""}</span>
+            </li>`).join("")}
+          </ul>` : '<p class="small muted" style="margin-top:6px">Nobody has opened it.</p>'}` : ""}
       </div>
 
+      <!-- The founder seat does not leave, and the API refuses it. -->
+      ${me.founder ? "" : `
       <div class="card">
         <div class="card-head"><h2>Leaving</h2></div>
         <p class="small muted" style="line-height:1.65">
-          Your profile disappears and no announcement is made. The person who referred
-          you is told; nobody else is, ever.
+          Your profile disappears and no announcement is made.
         </p>
         ${BB.state.confirmLeave ? `
           <div class="veil" style="margin-top:14px">
-            <b>This cannot be undone.</b> Your profile, your gives, your ask and every
-            strength you recorded are deleted. Introductions already made are not
-            recalled, because the other person holds those too.
+            <b>This cannot be undone.</b> Your profile, your ask, your gives, your connections
+            and every strength you recorded are deleted, and invitations you have not spent
+            stop working. An introduction in progress ends. One already made cannot be taken
+            back, because the other person already has your details.
+          </div>
+          <p class="small muted" style="margin-top:14px;line-height:1.65">
+            Download your data first if you want a copy. Once you leave, there is nothing to download.
+          </p>
+          <div class="row" style="margin-top:10px">
+            <button class="btn sm" data-data="download" data-id="my-data-download">Download my data</button>
           </div>
           <div class="row" style="margin-top:14px">
-            <button class="btn danger sm" data-leave="confirm">Yes, remove me</button>
-            <button class="btn sm quiet" data-leave="cancel">Keep my membership</button>
+            <button class="btn danger sm" data-leave="confirm" data-id="leave">Yes, remove me</button>
+            <button class="btn sm quiet" data-leave="cancel" data-id="leave">Keep my membership</button>
           </div>`
         : `<button class="btn danger sm" style="margin-top:14px" data-leave="ask">Remove me</button>`}
-      </div>
+      </div>`}
     </div>
   </div>`;
 };
+BB.screens.settings.needs = ["me"];

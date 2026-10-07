@@ -14,17 +14,17 @@
      white status bar over a dark page. daylight.js sets this from the same
      decision that sets the page, so it sits above that script. -->
 <meta name="theme-color" content="#FFFFFF" data-light="#FFFFFF" data-dark="#121212">
-<script src="assets/daylight.js?v=1791386077"></script>
-<link rel="stylesheet" href="assets/app.css?v=1791386077">
+<script src="assets/daylight.js?v=1791399055"></script>
+<link rel="stylesheet" href="assets/app.css?v=1791399055">
 <link rel="manifest" href="manifest.json">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Blackbook London">
-<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png?v=1791386077">
-<link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=1791386077">
-<link rel="alternate icon" href="favicon.ico?v=1791386077">
-<script src="assets/pwa.js?v=1791386077" defer data-install></script>
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png?v=1791399055">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=1791399055">
+<link rel="alternate icon" href="favicon.ico?v=1791399055">
+<script src="assets/pwa.js?v=1791399055" defer data-install></script>
 </head>
 <body>
 
@@ -44,24 +44,25 @@
 <!-- Config first, then data and shell. auth.js follows core.js because core.js
      declares BB and auth.js attaches to it. Any script added here must also be
      added to SHELL in sw.js, with a VERSION bump, or the app fails offline. -->
-<script src="assets/config.js?v=1791386077"></script>
-<script src="assets/data.js?v=1791386077"></script>
-<script src="assets/core.js?v=1791386077"></script>
-<script src="assets/auth.js?v=1791386077"></script>
-<script src="assets/api.js?v=1791386077"></script>
+<script src="assets/config.js?v=1791399055"></script>
+<script src="assets/data.js?v=1791399055"></script>
+<script src="assets/core.js?v=1791399055"></script>
+<script src="assets/auth.js?v=1791399055"></script>
+<script src="assets/api.js?v=1791399055"></script>
+<script src="assets/store.js?v=1791399055"></script>
 
 <!-- Screens register themselves on BB.screens -->
-<script src="assets/screens/home.js?v=1791386077"></script>
-<script src="assets/screens/network.js?v=1791386077"></script>
-<script src="assets/screens/asks.js?v=1791386077"></script>
-<script src="assets/screens/gives.js?v=1791386077"></script>
-<script src="assets/screens/members.js?v=1791386077"></script>
-<script src="assets/screens/introductions.js?v=1791386077"></script>
-<script src="assets/screens/profile.js?v=1791386077"></script>
-<script src="assets/screens/admin.js?v=1791386077"></script>
+<script src="assets/screens/home.js?v=1791399055"></script>
+<script src="assets/screens/network.js?v=1791399055"></script>
+<script src="assets/screens/asks.js?v=1791399055"></script>
+<script src="assets/screens/gives.js?v=1791399055"></script>
+<script src="assets/screens/members.js?v=1791399055"></script>
+<script src="assets/screens/introductions.js?v=1791399055"></script>
+<script src="assets/screens/profile.js?v=1791399055"></script>
+<script src="assets/screens/admin.js?v=1791399055"></script>
 
 <!-- Boot last, once every screen exists -->
-<script src="assets/boot.js?v=1791386077"></script>
+<script src="assets/boot.js?v=1791399055"></script>
 
 </body>
 </html>

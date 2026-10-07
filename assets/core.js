@@ -229,10 +229,37 @@ function go(screen) {
   window.scrollTo(0, 0);
 }
 
+/* A screen that declares .needs, a list of store keys, is drawn once the
+   store holds data for every one of them. Until then #screen carries the
+   loading line, and if a fetch fails, the error box with Try again (boot.js
+   answers [data-store-retry] by rendering again). Screens without .needs
+   draw at once, as they always have.
+
+   Each render takes a number, so a fetch that lands after the member has
+   moved on, or after a later render has drawn, redraws nothing. */
+let renders = 0;
+
 function render() {
   renderChrome();
   const host = document.getElementById("screen");
   const fn = BB.screens[BB.state.screen] || BB.screens.home;
+  const seq = ++renders;
+  if (fn.needs) {
+    const waiting = BB.store.need(fn.needs);
+    if (fn.needs.some(k => BB.store.peek(k) === undefined)) {
+      host.innerHTML = `<div class="shell"><p class="admin-state muted" role="status">Loading</p></div>`;
+      waiting.then(() => { if (seq === renders) render(); }, err => {
+        if (seq !== renders) return;
+        /* A 404 body differs by route, so it is never shown here. */
+        const why = err && err.status !== 404 && err.detail ? err.detail : "Try again in a moment.";
+        host.innerHTML = `<div class="shell"><div class="empty" role="alert">
+          <b>Could not load this.</b>${esc(why)}
+          <div style="margin-top:14px"><button class="btn sm" data-store-retry>Try again</button></div>
+        </div></div>`;
+      });
+      return;
+    }
+  }
   host.innerHTML = `<div class="shell">${fn()}</div>`;
   wire(host);
 }

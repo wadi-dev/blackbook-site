@@ -388,6 +388,8 @@
       if (!S.started) { S.started = true; load(); return; }
       if (!drawn) render();
     });
-    return drawn ? page() : BB.screens.home();
+    /* Until the answer, the loading line every screen waiting on data shows.
+       Not Home: Home reads the store, and this screen fills none of it. */
+    return drawn ? page() : `<p class="admin-state muted" role="status">Loading</p>`;
   };
 })();

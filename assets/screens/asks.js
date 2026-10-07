@@ -70,3 +70,5 @@ BB.screens.asks = function () {
     never who asked. It is the quietest way to be useful here.
   </div>`;
 };
+/* API.asks() reads API.me(), and the gives on it. */
+BB.screens.asks.needs = ["me", "gives"];

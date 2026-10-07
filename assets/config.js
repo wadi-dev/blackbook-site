@@ -42,10 +42,13 @@ window.BB_CONFIG = Object.freeze({
      A non-empty string makes auth.js skip Clerk altogether: ready() resolves
      at once, token() hands this string to every request, signedIn() is true,
      user() is {demo: true} and signOut() goes to index.html. It exists for
-     the demo and is written into the demo's copy of this file by the demo's
-     site builder, never by hand and never into production. It is safe there
-     and nowhere else: the demo API accepts unsigned tokens and reaches only
-     the throwaway database, so the string opens nothing real, and a
+     the local harness: dev/serve.py adds it, with an API_BASE of
+     http://127.0.0.1:8000, to the copy of this file it serves, in memory,
+     for the identity chosen at /__dev/as/<name>. Never by hand and never
+     into production; verify-live.py fails on a file that carries it. It is
+     safe there and nowhere else: the harness API (scripts/dev_api.py in
+     blackbook-api) accepts unsigned dev| tokens and reaches only the local
+     blackbook_e2e database, so the string opens nothing real, and a
      production config that carried it would still be talking to an API that
      refuses it. See docs/admin.md. */
 });
