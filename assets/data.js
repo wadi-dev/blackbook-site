@@ -197,6 +197,9 @@ DB.rampDark = { 7: "#FFFFFF", 6: "#D6D6D6", 5: "#AFAFAF", 4: "#8A8A8A",
 /* Mirrors the shape a real endpoint would return. Swap the bodies for fetch()
    and nothing above this line changes. */
 
+const named = (first, last) =>
+  ({ first, last, initials: (first.charAt(0) + last.charAt(0)).toUpperCase() });
+
 /* "Alice Arbery" is first "Alice", last "Arbery", initials "AA". Split on the
    first space only, so a surname with a space in it stays whole. */
 function splitName(name) {
@@ -204,7 +207,7 @@ function splitName(name) {
   const i = s.indexOf(" ");
   const first = i === -1 ? s : s.slice(0, i);
   const last = i === -1 ? "" : s.slice(i + 1).trim();
-  return { first, last, initials: (first.charAt(0) + last.charAt(0)).toUpperCase() };
+  return named(first, last);
 }
 
 /* "7 Oct 2026", as Admin writes a date. */
@@ -225,8 +228,13 @@ const API = {
     const founder = v.role === "founder";
     return {
       id: v.id,
-      ...splitName(v.name),
+      /* The two names as the member gave them, so a first name with a space
+         in it stays whole, on the onboarding screen above all, which saves
+         them back (8 October 2026). Split from the full name only for an API
+         older than that. */
+      ...("first_name" in v ? named(v.first_name, v.last_name) : splitName(v.name)),
       role: v.role_title, firm: v.firm, city: v.city, sector: v.sector,
+      linkedin: v.linkedin_url,
       founder,
       since: shortDate.format(new Date(v.member_since || v.created_at)),
       invitesLeft: v.invitations_left,

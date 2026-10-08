@@ -1,8 +1,10 @@
 /* The invitation form, wired to POST /api/join.
 
    This door is public. The person using it is not a member yet, so there is
-   no token, nothing is read back from the answer beyond its status, and
-   nothing the server says is kept anywhere. A 201 means the application is
+   no token, nothing is read back from the join's answer beyond its status,
+   and nothing the server says is kept anywhere. The check's answer is read
+   for one thing, the details a concierge invitation carries, which go into
+   the fields and nowhere else. A 201 means the application is
    pending review; it does not open the app, because a pending member has no
    way to sign in until someone approves them.
 
@@ -17,6 +19,7 @@
   const joined = document.getElementById("joined");
   const stepTwo = document.getElementById("step-two");
   const change  = document.getElementById("change-code");
+  const note    = document.getElementById("prefill-note");
   const fields = {
     code:       document.getElementById("code"),
     first_name: document.getElementById("first_name"),
@@ -24,16 +27,22 @@
     email:      document.getElementById("email"),
     role_title: document.getElementById("role_title"),
     firm:       document.getElementById("firm"),
+    city:       document.getElementById("city"),
     linkedin_url: document.getElementById("linkedin_url"),
     accept:     document.getElementById("accept")
   };
+
+  // Every field step two cannot be sent without, in the order the page shows
+  // them. The API requires the five profile fields of every joiner (its
+  // app/profile.py), so they are asked for here rather than refused there.
+  const REQUIRED = ["first_name", "last_name", "email", "role_title", "firm", "city"];
 
   // The backend's 422 names fields by their JSON key. These are the words the
   // member sees instead, so the validation payload (which carries what they
   // typed) never reaches the page.
   const LABELS = {
     code: "invitation code", first_name: "first name", last_name: "last name",
-    email: "email address", role_title: "role", firm: "firm",
+    email: "email address", role_title: "role", firm: "firm", city: "city",
     linkedin_url: "LinkedIn profile URL", accept: "acceptance of the terms"
   };
 
@@ -93,10 +102,12 @@
 
   /* Two steps behind one button. Step one sends the code alone to
      /api/join/check and shows nothing else until the backend says it is live,
-     so a person without a code is never asked who they are. Step two sends the
-     full application to /api/join. If the code has died between the two (spent
-     by somebody else, or expired), the door refuses and the page returns to
-     step one with the same sentence. */
+     so a person without a code is never asked who they are. A live code's
+     answer carries whatever details it was minted with, which fill step two
+     before it is shown. Step two sends the full application to /api/join. If
+     the code has died between the two (spent by somebody else, or expired),
+     the door refuses and the page returns to step one with the same
+     sentence. */
   let unlocked = false;
 
   const showStepOne = () => {
@@ -107,13 +118,33 @@
     button.textContent = "Continue";
   };
 
+  // The cursor goes to the first field still empty, which for a concierge
+  // invitation is the email address, the one thing it cannot carry.
   const showStepTwo = () => {
     unlocked = true;
     stepTwo.hidden = false;
     change.hidden = false;
     fields.code.readOnly = true;
     button.textContent = "Send";
-    fields.first_name.focus();
+    (REQUIRED.map(name => fields[name]).find(f => !f.value.trim()) || fields.accept).focus();
+  };
+
+  /* A concierge invitation's details, from the check's answer: an empty
+     string for each one nobody gave, and all five empty on any other code.
+     Each one given replaces what the field holds, because it belongs to the
+     code just checked; each one not given leaves the field alone. Every
+     field stays editable. */
+  const PREFILLED = ["first_name", "last_name", "role_title", "firm", "city"];
+  const prefill = body => {
+    const given = body && body.prefill && typeof body.prefill === "object" ? body.prefill : {};
+    let any = false;
+    for (const name of PREFILLED) {
+      const value = typeof given[name] === "string" ? given[name].trim() : "";
+      if (!value) continue;
+      fields[name].value = value;
+      any = true;
+    }
+    note.hidden = !any;
   };
 
   change.addEventListener("click", () => {
@@ -147,7 +178,7 @@
   };
 
   const validate = () => {
-    const missing = (unlocked ? ["code", "first_name", "last_name", "email"] : ["code"])
+    const missing = (unlocked ? ["code", ...REQUIRED] : ["code"])
       .filter(name => !fields[name].value.trim());
     if (missing.length) {
       fail(`Please fill in your ${list(missing)}.`, missing);
@@ -224,7 +255,9 @@
     joined.focus();
   };
 
-  const send = async (path, body) => {
+  // `read` asks for the answer's body as well as its status. Only the check
+  // asks; the join's answer is the joiner's own record and is not read.
+  const send = async (path, body, read) => {
     const url = endpoint(path);
     if (!url) return { kind: "unreachable" };
     let res;
@@ -239,15 +272,14 @@
     } catch (_) {
       return { kind: "unreachable" };
     }
-    if (res.ok) return { kind: "ok" };
+    if (res.ok) return { kind: "ok", body: read ? await readJson(res) : null };
     if (res.status === 400) return { kind: "refused", text: sentence(await readJson(res), REFUSED) };
     if (res.status === 429) return { kind: "too_many", text: sentence(await readJson(res), TOO_MANY) };
     if (res.status === 422) return { kind: "invalid", names: invalidFields(await readJson(res)) };
     return { kind: "unreachable" };
   };
 
-  form.addEventListener("submit", async e => {
-    e.preventDefault();
+  const submit = async () => {
     if (busy || countdown) return;
     clearMarks();
     if (!validate()) return;
@@ -259,23 +291,22 @@
 
     let result;
     if (!wasUnlocked) {
-      result = await send("/api/join/check", { code: fields.code.value.trim() });
+      result = await send("/api/join/check", { code: fields.code.value.trim() }, true);
     } else {
       const body = {
         code: fields.code.value.trim(),
         email: fields.email.value.trim(),
         first_name: fields.first_name.value.trim(),
         last_name: fields.last_name.value.trim(),
+        role_title: fields.role_title.value.trim(),
+        firm: fields.firm.value.trim(),
+        city: fields.city.value.trim(),
         // What the page showed beside the box, written into the form by
         // build-legal.py. The API stores the pair with its own clock.
         terms_version: form.dataset.termsVersion,
         privacy_version: form.dataset.privacyVersion
       };
-      const role = fields.role_title.value.trim();
-      const firm = fields.firm.value.trim();
       const linkedin = profileUrl(fields.linkedin_url.value);
-      if (role) body.role_title = role;
-      if (firm) body.firm = firm;
       if (linkedin) body.linkedin_url = linkedin;
       result = await send("/api/join", body);
     }
@@ -286,7 +317,8 @@
 
     switch (result.kind) {
       case "ok":
-        if (wasUnlocked) succeed(); else showStepTwo();
+        if (wasUnlocked) succeed();
+        else { prefill(result.body); showStepTwo(); }
         break;
       case "refused":
         if (wasUnlocked) showStepOne();
@@ -304,7 +336,32 @@
       default:
         fail(UNREACHABLE);
     }
+  };
+
+  form.addEventListener("submit", e => {
+    e.preventDefault();
+    submit();
   });
 
-  fields.code.focus();
+  /* A concierge link carries its code in the address, enter.html?code=...,
+     so the invitee has nothing to paste. It is read once, put in the field,
+     and taken out of the address bar before anything is sent, so it is not
+     left in this page's history entry or in a screenshot of it. Then the
+     check runs by itself, once per load, as a tap on Continue would: the same
+     request, the same meter, and the same one sentence for a code that is not
+     live. The code goes nowhere else and is not logged. Trimmed as a paste
+     is, and cut to the field's length, so it is what typing it would send. */
+  const fromLink = () => {
+    let raw = null;
+    try { raw = new URLSearchParams(location.search).get("code"); } catch (_) { /* no query */ }
+    if (raw === null) return false;
+    if (history.replaceState) history.replaceState(null, "", location.pathname + location.hash);
+    const code = raw.replace(/\s+/g, "").slice(0, fields.code.maxLength);
+    if (!code) return false;
+    fields.code.value = code;
+    return true;
+  };
+
+  if (fromLink()) submit();
+  else fields.code.focus();
 })();

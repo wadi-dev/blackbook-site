@@ -100,7 +100,7 @@ BB.screens.gives = function () {
     </div>
 
     <div class="stack">
-      <div class="card">
+      <div class="card" id="gives-types" data-keep="${esc(kinds.map(k => k.value + " " + k.label).join("|"))}">
         <div class="card-head"><h2>The types</h2></div>
         <p class="small muted" style="margin-bottom:14px;line-height:1.6">
           Each give is paired with the open asks of the same type, and with asks
@@ -145,3 +145,8 @@ BB.screens.gives = function () {
   </div>`;
 };
 BB.screens.gives.needs = ["gives", "categories"];
+/* The types stay where they are when Gives is drawn again, a redraw from the
+   store included, so one that is opening or closing finishes its motion and
+   one that is open is not drawn again under the reader (core.js, keepPart).
+   They depend on the served list alone, which is what data-keep holds. */
+BB.screens.gives.keep = "#gives-types";

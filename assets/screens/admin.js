@@ -5,10 +5,11 @@
    waiting on a release, with Release and Stop on each, the members who have
    been reported, with their reports on each, the lineage of every seat as a
    tree, with the decisions its standing allows on each, and the membership
-   inquiries from the public form, with Dismiss on each. One is shown at a
-   time behind a segmented control. The screen holds what the API sent in
-   memory for the session and writes none of it anywhere; a reload starts
-   from nothing.
+   inquiries from the public form, with Dismiss on each. A sixth section,
+   Concierge, mints an invitation that carries the details of the person it
+   is for. One is shown at a time behind a segmented control. The screen
+   holds what the API sent in memory for the session and writes none of it
+   anywhere; a reload starts from nothing.
 
    The tab that reaches here is drawn only when BB.auth.isStaff() has said
    yes, and this function asks the same question again on every visit, before
@@ -36,11 +37,17 @@
     open: new Set(), /* "<introduction id> <member id>" for each card open under a row */
     reports: new Map(), /* reported member's id -> their reports, for each list open under a row */
     busy: null,     /* id of the applicant, introduction, inquiry, card or member whose call is in flight */
-    notice: null    /* the server's own sentence after a refused decision */
+    notice: null,   /* the server's own sentence after a refused decision */
+    concierge: {
+      fields: { first_name: "", last_name: "", firm: "", role_title: "", city: "" },
+      busy: false,  /* a mint is in flight */
+      minted: null  /* the last answer: {code, expires_at, hours, link} */
+    }
   };
 
   const TABS = [["applications", "Applications"], ["introductions", "Introductions"],
-    ["conduct", "Conduct"], ["lineage", "Lineage"], ["inquiries", "Inquiries"]];
+    ["conduct", "Conduct"], ["lineage", "Lineage"], ["inquiries", "Inquiries"],
+    ["concierge", "Concierge"]];
 
   const isAdmin = () => BB.state.screen === "admin";
 
@@ -269,6 +276,75 @@
     await load();
   }
 
+  /* A concierge invitation is one POST from the founder's own seat, carrying
+     whichever of the five details were filled in; a blank one is not sent.
+     One request per tap: the button is disabled until the answer, and the
+     toast waits for it. The details are cleared after a success, so the
+     next invitation starts from an empty form, and kept after a refusal, so
+     nothing has to be typed again. The API holds them sealed and clears them
+     when the code is spent, revoked or runs out; the link carries the code
+     alone. Nothing is reloaded: no list on this screen changes until the
+     invitee applies. */
+  async function concierge() {
+    const c = S.concierge;
+    if (c.busy) return;
+    const body = {};
+    for (const [key, value] of Object.entries(c.fields)) {
+      if (value.trim()) body[key] = value.trim();
+    }
+    c.busy = true;
+    render();
+    let made = false;
+    try {
+      c.minted = await BB.api("/api/broker/invitations", { method: "POST", body });
+      for (const key of Object.keys(c.fields)) c.fields[key] = "";
+      made = true;
+      toast("Invitation ready.");
+    } catch (e) {
+      toast(e && e.detail ? e.detail : "Could not create an invitation.");
+    }
+    c.busy = false;
+    if (!isAdmin()) return;
+    render();
+    /* The link lands under the form, below the fold on a phone, so it is
+       brought up to where the founder is looking. Centred, because the tab
+       bar covers the foot of the screen there. */
+    const card = made && S.tab === "concierge" && host && host.querySelector(".invite-code");
+    if (card) card.scrollIntoView({ block: "center" });
+  }
+
+  /* The member card's sentence (boot.js), with the link that opens the join
+     page with the code already in it. */
+  const conciergeText = m =>
+    "I am inviting you to Blackbook London. Your private access code is: "
+    + m.code + ". Join here: " + m.link;
+
+  const copy = (text, done, failed) => {
+    if (!navigator.clipboard) { toast(failed); return; }
+    navigator.clipboard.writeText(text).then(() => toast(done), () => toast(failed));
+  };
+
+  /* WhatsApp, LinkedIn and Copy, as on the member's invitation card in
+     boot.js and for its reasons: wa.me carries the message and the founder
+     picks the recipient; LinkedIn takes no message text, so it goes on the
+     clipboard and LinkedIn's messaging opens. Both tabs open synchronously
+     from the tap, or the browser treats them as pop-ups. A tab opened with
+     noopener is never handed back, so whether it opened cannot be told. */
+  function share(how) {
+    const m = S.concierge.minted;
+    if (!m) return;
+    const text = conciergeText(m);
+    if (how === "wa") {
+      window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank", "noopener");
+    } else if (how === "linkedin") {
+      window.open("https://www.linkedin.com/messaging/", "_blank", "noopener");
+      copy(text, "Message copied. Paste it into a LinkedIn message.",
+        "Copy the message from the card and paste it into a LinkedIn message.");
+    } else {
+      copy(text, "Copied.", "Could not copy. Select the message and copy it by hand.");
+    }
+  }
+
   /* One listener on the screen root, which outlives every render. */
   const host = document.getElementById("screen");
   if (host) host.addEventListener("click", e => {
@@ -288,6 +364,12 @@
       S.loading = true;
       render();
       conduct().then(names).then(() => { S.loading = false; if (isAdmin()) render(); });
+      return;
+    }
+    /* Neither waits on a decision in flight, nor holds one up. */
+    if (kind === "concierge") { concierge(); return; }
+    if (kind === "concierge-share") {
+      if (["wa", "linkedin", "copy"].includes(b.dataset.how)) share(b.dataset.how);
       return;
     }
     if (S.busy) return;
@@ -343,8 +425,15 @@
   });
 
   /* The filters redraw the inquiry list alone, not the screen: a full render
-     would replace the input the broker is typing into and drop the caret. */
+     would replace the input the broker is typing into and drop the caret.
+     The concierge fields redraw nothing; each is held so a render puts it
+     back as it was. */
   if (host) host.addEventListener("input", e => {
+    const d = e.target.closest("[data-concierge]");
+    if (d && isAdmin() && d.dataset.concierge in S.concierge.fields) {
+      S.concierge.fields[d.dataset.concierge] = d.value;
+      return;
+    }
     const f = e.target.closest("[data-admin-filter]");
     if (!f || !isAdmin()) return;
     const key = f.dataset.adminFilter;
@@ -651,6 +740,57 @@
       </div>`).join("")}</div>`;
   }
 
+  /* ---------------------------------------------------------- concierge --- */
+
+  /* The five, in the order they are said aloud, with the API's limit for
+     each (app/profile.py), so the browser stops where the API would refuse.
+     autocomplete is off: these are somebody else's details, and the browser
+     would offer the founder's own. */
+  const CONCIERGE = [["first_name", "First name", 120], ["last_name", "Last name", 120],
+    ["firm", "Firm", 160], ["role_title", "Role", 160], ["city", "City", 80]];
+
+  const timeOf = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const until = iso => {
+    const t = Date.parse(iso);
+    return Number.isNaN(t) ? "" : ", until " + timeOf.format(t) + " on " + fmt.format(t);
+  };
+
+  const minted = m => `
+    <div class="invite-code" aria-live="polite" style="margin-top:16px">
+      <span class="lbl">Invitation link</span>
+      <span class="invite-link">${esc(m.link)}</span>
+      <span class="small muted">Valid for ${esc(m.hours)} hours${esc(until(m.expires_at))}.</span>
+      <p class="small invite-message">${esc(conciergeText(m))}</p>
+    </div>
+    <div class="row" style="flex-wrap:wrap;gap:8px">
+      <button class="btn sm primary" data-admin="concierge-share" data-how="wa">Invite by WhatsApp</button>
+      <button class="btn sm" data-admin="concierge-share" data-how="linkedin">Invite by LinkedIn</button>
+      <button class="btn sm" data-admin="concierge-share" data-how="copy">Copy the message</button>
+    </div>`;
+
+  function conciergeCard() {
+    const c = S.concierge;
+    return `
+  <div class="card">
+    <p class="small muted" style="line-height:1.6;margin-bottom:14px">
+      An invitation from your seat with the person's details already in it.
+      Their join page opens filled in, so they type only their email, and
+      they can change anything you wrote. Every field is optional. The link
+      carries only the code. The details are deleted when the code is used
+      or revoked, and within a day of it running out.
+    </p>
+    <div class="admin-concierge">${CONCIERGE.map(([key, label, max]) => `
+      <label class="admin-filter">
+        <span class="lbl">${label}</span>
+        <input type="text" data-concierge="${key}" value="${esc(c.fields[key])}" maxlength="${max}"
+          autocomplete="off" spellcheck="false">
+      </label>`).join("")}
+    </div>
+    <button class="btn primary sm" data-admin="concierge"${c.busy ? " disabled" : ""}>${c.busy ? "Generating" : "Generate invitation"}</button>
+    ${c.minted ? minted(c.minted) : ""}
+  </div>`;
+  }
+
   /* --------------------------------------------------------------- page --- */
 
   const tabs = () => `
@@ -685,6 +825,11 @@
     <span class="eyebrow" id="admin-inquiry-count">${esc(inquiryCount())}</span>
   </div>
   ${inquiries()}`;
+    if (S.tab === "concierge") return `
+  <div class="card-head">
+    <h2>Concierge invite</h2>
+  </div>
+  ${conciergeCard()}`;
     return `
   <div class="card-head">
     <h2>Applications</h2>
@@ -699,8 +844,9 @@
       <h1>Admin</h1>
       <p class="sub">Who is waiting at the door, which introductions are
         waiting on you, who has been reported, who invited whom, and who has
-        asked to be let in. Every decision here is taken by the API and
-        recorded against your seat.</p>
+        asked to be let in. Concierge invites someone by name. Every
+        decision here is taken by the API and recorded against your
+        seat.</p>
     </div>
     <button class="btn sm" data-admin="refresh"${S.loading ? " disabled" : ""}>${S.loading ? "Loading" : "Refresh"}</button>
   </div>

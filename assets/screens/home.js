@@ -139,3 +139,143 @@ BB.screens.home = function () {
   </div>`;
 };
 BB.screens.home.needs = ["me", "asks", "gives", "categories", "ties"];
+
+
+/* Onboarding, the one screen a member sees until they have been through it
+   (8 October 2026). render() (core.js) draws it in place of every other
+   screen while /api/me answers onboarded false, under chrome that offers
+   Sign out and nothing else. One page and one Submit: the member's details,
+   filled in already from what they gave at the door or what their
+   invitation carried, a first ask and a first give. boot.js sends it and
+   opens Home once the server has taken it.
+
+   What the member types is held in BB.state.onboarding as they type, in
+   memory and nowhere else, so a redraw draws it back rather than losing it;
+   it is dropped once the server has it. So is the sentence for each field
+   that was refused, shown under that field. Kept beside Home rather than in
+   a file of its own, so the app page and the worker's shell list (sw.js)
+   load nothing new. */
+
+/* The fields in the order they are drawn, which is the order the cursor
+   looks through for the first one still empty. */
+const ONBOARD_ORDER = ["first_name", "last_name", "firm", "role_title", "city",
+  "ask_title", "ask_category", "give_description", "give_category"];
+
+BB.screens.onboarding = function () {
+  const kinds = API.categories();
+  if (!BB.state.onboarding) {
+    const me = API.me();
+    BB.state.onboarding = {
+      draft: { first_name: me.first, last_name: me.last, firm: me.firm, role_title: me.role,
+               city: me.city, linkedin_url: me.linkedin || "", ask_title: "", ask_category: "",
+               give_description: "", give_category: "", give_confidence: "4" },
+      errors: {}, note: "", focused: false
+    };
+  }
+  const { draft: d, errors: bad, note } = BB.state.onboarding;
+
+  /* Each field names its message, so a reader hears the message with the
+     label. The message is empty and hidden until there is one. */
+  const msg = key =>
+    `<p class="ob-msg" id="ob-${key}-msg"${bad[key] ? "" : " hidden"}>${esc(bad[key] || "")}</p>`;
+  const attrs = (key, hint) => `id="ob-${key}" data-ob="${key}" aria-describedby="` +
+    `${hint ? `ob-${key}-hint ` : ""}ob-${key}-msg"${bad[key] ? ' aria-invalid="true"' : ""}`;
+  const text = (key, label, max, auto) => `
+    <div>
+      <label class="fld"><span class="lbl">${label}</span>
+        <input type="text" ${attrs(key)} value="${esc(d[key])}" maxlength="${max}" autocomplete="${auto}">
+      </label>
+      ${msg(key)}
+    </div>`;
+  const choose = (key, list) => `
+    <label class="fld ob-narrow"><span class="lbl">Which type</span>
+      <select ${attrs(key)}><option value="" disabled${d[key] ? "" : " selected"}>Choose one</option>${
+        list.map(k => `<option value="${esc(k.value)}"${k.value === d[key] ? " selected" : ""}>${esc(k.label)}</option>`).join("")}</select>
+    </label>
+    ${msg(key)}`;
+
+  return `
+  <div class="ob">
+    <div class="page-head">
+      <div>
+        <h1>Welcome to Blackbook London</h1>
+        <p class="sub">Before you start, check your details and tell us one thing you need
+          and one thing you can open. You only do this once.</p>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="card">
+        <div class="card-head"><h2>Your details</h2></div>
+        <p class="small muted ob-lead">Filled in from when you joined. Change anything that is not right.</p>
+        <div class="ob-pair">
+          ${text("first_name", "First name", 120, "given-name")}
+          ${text("last_name", "Last name", 120, "family-name")}
+        </div>
+        <div class="ob-pair">
+          ${text("firm", "Firm", 160, "organization")}
+          ${text("role_title", "Role", 160, "organization-title")}
+        </div>
+        ${text("city", "City", 80, "address-level2")}
+        <label class="fld"><span class="lbl">LinkedIn profile URL <span class="opt">optional</span></span>
+          <input type="text" inputmode="url" ${attrs("linkedin_url", true)} value="${esc(d.linkedin_url)}"
+            maxlength="400" autocomplete="url" autocapitalize="off" spellcheck="false">
+        </label>
+        <p class="small muted ob-hint" id="ob-linkedin_url-hint">When an introduction is made, the
+          other member is given this and your email address.</p>
+        ${msg("linkedin_url")}
+        <p class="small muted ob-foot">Another member sees your role, your sector and your city.
+          Nothing else, until you have agreed.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Your first ask</h2></div>
+        <p class="small muted ob-lead">Other members never see it. We read it when we look for
+          someone who can open that door.</p>
+        <label class="fld"><span class="lbl">What you need that money alone cannot buy</span>
+          <textarea rows="3" ${attrs("ask_title", true)}>${esc(d.ask_title)}</textarea>
+        </label>
+        <p class="small muted tabular ob-hint" id="ob-ask_title-hint">${askCount(d.ask_title)}</p>
+        ${msg("ask_title")}
+        ${choose("ask_category", kinds.ask)}
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Your first give</h2></div>
+        <p class="small muted ob-lead">Something specific you could realistically make happen.
+          Other members never see your gives.</p>
+        <label class="fld"><span class="lbl">What you can open</span>
+          <textarea rows="3" ${attrs("give_description")}
+            placeholder="A first meeting with three mid-market PE sponsors this quarter">${esc(d.give_description)}</textarea>
+        </label>
+        ${msg("give_description")}
+        ${choose("give_category", kinds.give)}
+        <label class="fld ob-narrow"><span class="lbl">Confidence, 1 to 7</span>
+          <select ${attrs("give_confidence", true)}>${[1, 2, 3, 4, 5, 6, 7].map(n =>
+            `<option value="${n}"${String(n) === d.give_confidence ? " selected" : ""}>${n}</option>`).join("")}</select>
+        </label>
+        <p class="small muted ob-hint" id="ob-give_confidence-hint">How comfortable you would
+          genuinely be making the introduction, not how well you know them.</p>
+        ${msg("give_confidence")}
+      </div>
+    </div>
+
+    <div class="ob-submit">
+      <button class="btn primary" data-onboard="submit" data-id="onboarding">Submit</button>
+      <p class="small ob-note" role="status"${note ? "" : " hidden"}>${esc(note)}</p>
+    </div>
+  </div>`;
+};
+BB.screens.onboarding.needs = ["me", "categories"];
+
+/* The cursor starts in the first field still empty, once per visit: for an
+   invitation that carried every detail, that is the ask. The page stays at
+   its top, so the details are read before anything else. */
+BB.screens.onboarding.mount = host => {
+  const ob = BB.state.onboarding;
+  if (!ob || ob.focused) return;
+  ob.focused = true;
+  const key = ONBOARD_ORDER.find(k => !String(ob.draft[k]).trim());
+  const field = key && host.querySelector("#ob-" + key);
+  if (field) field.focus({ preventScroll: true });
+};

@@ -122,6 +122,26 @@ const svg = (paths, size) =>
   `stroke-linecap="round" stroke-linejoin="round"${size ? ` style="width:${size}px;height:${size}px"` : ""}>${paths}</svg>`;
 
 function renderChrome() {
+  /* Until /api/me has answered that this member has been through the
+     onboarding screen, the chrome leads nowhere: the wordmark, and once the
+     answer is in, Sign out (boot.js). No tab bar and no More sheet, so there
+     is nothing to tap past it. See render(). */
+  const me = BB.store.peek("me");
+  const tabbar = document.getElementById("tabbar");
+  if (!me || me.onboarded === false) {
+    document.getElementById("topbar").innerHTML = `
+      <div class="topbar-inner">
+        <span class="wordmark">Blackbook<span class="geo">(London)</span></span>
+        <span class="grow"></span>
+        ${me ? '<button class="btn sm" data-sign-out>Sign out</button>' : ""}
+      </div>`;
+    tabbar.innerHTML = "";
+    tabbar.hidden = true;
+    document.querySelector("#sheet .sheet-list").innerHTML = "";
+    return;
+  }
+  tabbar.hidden = false;
+
   /* Requests waiting on this member's answer, counted from whatever the
      store holds. Never fetched here, so the badge never holds up a render;
      boot.js asks for the list behind the first one. */
@@ -248,7 +268,18 @@ function go(screen) {
 
    A screen that declares .mount is handed #screen once its markup is in,
    for what a string of HTML cannot do: the Network graph lays itself out
-   and takes its gestures there. */
+   and takes its gestures there.
+
+   A screen can name one part of itself in .keep, which a render of the same
+   screen leaves where it is (keepPart, below).
+
+   Before any of that comes the onboarding gate (8 October 2026). Nothing is
+   drawn until /api/me has answered, and while it answers onboarded false
+   the onboarding screen (home.js) is drawn in place of whatever was asked
+   for: a tab, a link, a hash and a shortcut all arrive here. Once it answers
+   true, the gate opens on Home. An answer with no onboarded field at all,
+   from an API older than the gate, opens it, so nobody is held on a screen
+   that API cannot take. */
 let renders = 0;
 
 /* A 404 body differs by route, so it is never shown here. */
@@ -262,10 +293,22 @@ function cannotLoad(err) {
 
 function render() {
   if (HIDDEN.includes(BB.state.screen)) BB.state.screen = "home";
-  renderChrome();
   const host = document.getElementById("screen");
-  const fn = BB.screens[BB.state.screen] || BB.screens.home;
   const seq = ++renders;
+  const me = BB.store.peek("me");
+  if (me === undefined) {
+    renderChrome();
+    host.innerHTML = `<div class="shell"><p class="admin-state muted" role="status">Loading</p></div>`;
+    BB.store.need(["me"]).then(() => { if (seq === renders) render(); }, err => {
+      if (seq !== renders) return;
+      host.innerHTML = `<div class="shell">${cannotLoad(err)}</div>`;
+    });
+    return;
+  }
+  if (me.onboarded === false) BB.state.screen = "onboarding";
+  else if (BB.state.screen === "onboarding") BB.state.screen = "home";
+  renderChrome();
+  const fn = BB.screens[BB.state.screen] || BB.screens.home;
   if (fn.needs) {
     const waiting = BB.store.need(fn.needs);
     if (fn.needs.some(k => BB.store.peek(k) === undefined)) {
@@ -277,8 +320,11 @@ function render() {
       return;
     }
   }
-  host.innerHTML = `<div class="shell">${fn()}</div>`;
-  wire(host);
+  const html = `<div class="shell">${fn()}</div>`;
+  if (!keepPart(host, html, fn.keep)) {
+    host.innerHTML = html;
+    wire(host);
+  }
   if (fn.mount) fn.mount(host);
   if (fn.wants) {
     const missing = fn.wants.some(k => BB.store.peek(k) === undefined);
@@ -287,6 +333,51 @@ function render() {
       host.querySelectorAll("[data-wants]").forEach(part => { part.innerHTML = cannotLoad(err); });
     });
   }
+}
+
+/* The part of a screen named by its .keep, a selector, stays on the page
+   when the screen is drawn over itself, and everything around it is drawn
+   new. The part carries data-keep, a value that changes whenever its
+   markup would, and it is kept only while that value is the same.
+
+   It is never taken out of the page, not even for a moment: a transition
+   on an element that leaves the document is cancelled, so a part moved out
+   and back would finish its motion in one frame. Instead the two trees are
+   walked up together from the part, and at each level everything beside it
+   is replaced and the attributes are copied across, which needs the new
+   markup to hold the part at the same depth, under the same elements.
+
+   Gives is the reason (8 October 2026): a redraw there while one of the
+   types was opening or closing cut the motion short, and took the focus
+   off the row a keyboard was on. Returns false, having changed nothing,
+   when there is nothing to keep, and render() then draws as it always has.
+   The new nodes are wired before they go in, and the kept part is not
+   wired again. */
+function keepPart(host, html, sel) {
+  const live = sel && host.querySelector(sel);
+  if (!live) return false;
+  const fresh = el("div", null, html);
+  const drawn = fresh.querySelector(sel);
+  if (!drawn || drawn.dataset.keep !== live.dataset.keep) return false;
+  const chain = (n, top) => { const c = [n]; while (n !== top) c.push(n = n.parentNode); return c; };
+  const was = chain(live, host), now = chain(drawn, fresh);
+  if (was.length !== now.length
+      || was.some((n, i) => n !== host && n.tagName !== now[i].tagName)) return false;
+  wire(fresh);
+  for (let i = 1; i < was.length; i++) {
+    const into = was[i], from = now[i], kept = was[i - 1];
+    Array.from(into.childNodes).forEach(n => { if (n !== kept) n.remove(); });
+    let after = false;
+    Array.from(from.childNodes).forEach(n => {
+      if (n === now[i - 1]) after = true;
+      else if (after) into.appendChild(n);
+      else into.insertBefore(n, kept);
+    });
+    if (into === host) break;
+    Array.from(into.attributes).forEach(a => { if (!from.hasAttribute(a.name)) into.removeAttribute(a.name); });
+    Array.from(from.attributes).forEach(a => into.setAttribute(a.name, a.value));
+  }
+  return true;
 }
 
 /* Checked live rather than cached: a member who turns the setting on mid-session

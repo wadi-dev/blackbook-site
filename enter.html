@@ -17,18 +17,18 @@
      white status bar over a dark page. daylight.js sets this from the same
      decision that sets the page, so it sits above that script. -->
 <meta name="theme-color" content="#FFFFFF" data-light="#FFFFFF" data-dark="#0A0A0A">
-<script src="assets/daylight.js?v=1791464625"></script>
-<link rel="stylesheet" href="assets/app.css?v=1791464625">
-<link rel="stylesheet" href="assets/landing.css?v=1791464625">
+<script src="assets/daylight.js?v=1791495992"></script>
+<link rel="stylesheet" href="assets/app.css?v=1791495992">
+<link rel="stylesheet" href="assets/landing.css?v=1791495992">
 <link rel="manifest" href="manifest.json">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Blackbook London">
-<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png?v=1791464625">
-<link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=1791464625">
-<link rel="alternate icon" href="favicon.ico?v=1791464625">
-<script src="assets/pwa.js?v=1791464625" defer></script>
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png?v=1791495992">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=1791495992">
+<link rel="alternate icon" href="favicon.ico?v=1791495992">
+<script src="assets/pwa.js?v=1791495992" defer></script>
 </head>
 <body class="lp">
 
@@ -69,6 +69,11 @@
 
     <!-- Shown only after the backend has said the code is live. -->
     <div id="step-two" hidden>
+    <!-- Shown when the invitation came with details already written in. -->
+    <p id="prefill-note" class="small muted lp-help" hidden>
+      Filled in from your invitation. Check each detail and change anything
+      that is wrong.
+    </p>
     <div class="lp-pair">
       <label class="fld">
         <span class="lbl">First name</span>
@@ -95,16 +100,22 @@
 
     <div class="lp-pair">
       <label class="fld">
-        <span class="lbl">Role <span class="opt">optional</span></span>
+        <span class="lbl">Role</span>
         <input id="role_title" name="role_title" type="text"
-          autocomplete="organization-title" maxlength="160">
+          autocomplete="organization-title" maxlength="160" required>
       </label>
       <label class="fld">
-        <span class="lbl">Firm <span class="opt">optional</span></span>
+        <span class="lbl">Firm</span>
         <input id="firm" name="firm" type="text"
-          autocomplete="organization" maxlength="160">
+          autocomplete="organization" maxlength="160" required>
       </label>
     </div>
+
+    <label class="fld">
+      <span class="lbl">City</span>
+      <input id="city" name="city" type="text"
+        autocomplete="address-level2" maxlength="80" required>
+    </label>
 
     <label class="fld">
       <span class="lbl">LinkedIn profile URL <span class="opt">optional</span></span>
@@ -184,8 +195,8 @@
   </nav>
 </footer>
 
-<script src="assets/config.js?v=1791464625"></script>
-<script src="assets/join.js?v=1791464625"></script>
+<script src="assets/config.js?v=1791495992"></script>
+<script src="assets/join.js?v=1791495992"></script>
 
 </body>
 </html>

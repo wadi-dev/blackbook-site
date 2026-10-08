@@ -956,10 +956,10 @@ select {
 /* One section at a time. The control is the same segmented widget Settings
    uses, so a broker who has seen one has seen the other. */
 .admin-tabs { margin-bottom: var(--gap); }
-/* Five sections do not fit one row on a phone, and a label broken in the
-   middle reads worse than a second row, so there they sit two by two, the
-   last on its own. */
-@media (max-width: 480px) {
+/* Six sections need about 590px of page for one row, and a label broken in
+   the middle reads worse than a second row, so below 620px they sit two by
+   two. */
+@media (max-width: 620px) {
   .admin-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
@@ -979,6 +979,14 @@ select {
 .admin-filter input { font-size: 14px; padding: 9px 12px; }
 @media (max-width: 620px) { .admin-filters { grid-template-columns: minmax(0, 1fr); } }
 
+/* The concierge invitation's five fields, in the filters' type: two to a
+   row, one on a phone. */
+.admin-concierge {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+  margin-bottom: 14px;
+}
+@media (max-width: 620px) { .admin-concierge { grid-template-columns: minmax(0, 1fr); } }
+
 /* A pasted address is the one thing on this screen with no space in it. */
 .admin-link { overflow-wrap: anywhere; }
 
@@ -995,6 +1003,11 @@ select {
 .invite-code .invite-message {
   margin-top: 8px; line-height: 1.55; overflow-wrap: anywhere;
   user-select: all; -webkit-user-select: all;
+}
+/* A concierge link is an address with the code in it: it wraps anywhere,
+   and one tap selects it whole, like the message. */
+.invite-code .invite-link {
+  overflow-wrap: anywhere; user-select: all; -webkit-user-select: all;
 }
 .invite-code code {
   /* One line, never broken: a code that starts with a hyphen would
@@ -1013,6 +1026,13 @@ select {
      any phone breakpoint and still has fingers. */
   .btn, .btn.sm, .segmented button { min-height: 44px; }
   input, textarea, select { font-size: 16px; }
+  /* The field rules above set 14px with a class or a type in the selector,
+     which outweighs a bare element, so the 16px is said again with the same
+     weight, after them (8 October 2026). Without it Home's ask, the Gives
+     form and Admin's fields stayed at 14px. The search on Members is 25px
+     and type search, so it is left out. */
+  .fld input, .fld textarea, .fld select, .admin-filter input,
+  input[type="text"], input[type="email"], input[type="url"] { font-size: 16px; }
   .fld textarea, .fld select, .admin-filter input,
   input[type="text"], input[type="search"], input[type="email"], input[type="url"] {
     min-height: 44px;
@@ -1045,32 +1065,79 @@ select {
 /* An accordion. The body animates on grid rows rather than on a measured
    height, so it follows the text at any length; a closed body is hidden from
    screen readers once it has finished closing. The global reduced-motion rule
-   above turns every transition here off. */
-.type-row { border-top: 1px solid var(--line); }
+   above turns every transition here off.
+
+   Everything that changes moves, and on the row's clock (8 October 2026):
+   the chevron's colour snapped while it turned, on hover and on opening, so
+   it now eases with its rotation, both over the row's .34s. The visibility
+   that hides a closing body waits the same .34s, so a close is drawn to the
+   end as an open is. A tap on a phone dims the head (the :active rule near
+   the top) and it fades back rather than snapping back. A redraw of Gives
+   leaves the card in place (core.js, keepPart), so nothing here restarts.
+
+   Every motion here is on its own curve, an ease-in-out, and not on the
+   shared --ease, which is an ease-out: that one moved the body a fifth of
+   its travel in the first frame, which reads as a snap. This one starts
+   gently and lands gently, and it is this accordion's alone. */
+.type-row { --type-ease: cubic-bezier(0.4, 0, 0.2, 1); border-top: 1px solid var(--line); }
 .type-head {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   width: 100%; padding: 10px 0; background: none; border: 0; color: inherit;
   font: inherit; font-size: 13.5px; font-weight: 600; text-align: left; cursor: pointer;
+  transition: opacity .2s var(--type-ease);
 }
 .type-plain { cursor: default; }
-.type-chev { flex: none; color: var(--muted); transition: transform .3s var(--ease); }
+.type-chev {
+  flex: none; color: var(--muted);
+  transition: transform .34s var(--type-ease), color .34s var(--type-ease);
+}
 .type-head:hover .type-chev { color: var(--text); }
 .type-head[aria-expanded="true"] .type-chev { transform: rotate(180deg); color: var(--text); }
 .type-body {
   display: grid; grid-template-rows: 0fr; visibility: hidden;
-  transition: grid-template-rows .34s var(--ease), visibility 0s linear .34s;
+  transition: grid-template-rows .34s var(--type-ease), visibility 0s linear .34s;
 }
 .type-head[aria-expanded="true"] + .type-body {
   grid-template-rows: 1fr; visibility: visible;
-  transition: grid-template-rows .34s var(--ease), visibility 0s;
+  transition: grid-template-rows .34s var(--type-ease), visibility 0s;
 }
 .type-inner { overflow: hidden; min-height: 0; }
 .type-inner p {
   margin: 0; padding: 0 0 12px; line-height: 1.6;
   opacity: 0; transform: translateY(-4px);
-  transition: opacity .22s var(--ease), transform .3s var(--ease);
+  transition: opacity .22s var(--type-ease), transform .3s var(--type-ease);
 }
 .type-head[aria-expanded="true"] + .type-body p {
   opacity: 1; transform: none; transition-delay: .06s;
 }
 @media (pointer: coarse) { .type-head { min-height: 44px; } }
+
+/* ------------------------------------------- onboarding, the first screen --- */
+
+/* The one page a new member sees first (home.js). One column at reading
+   width, in the cards and fields every other screen uses, the two short
+   pairs side by side until a phone, where they stack. A refused field is
+   marked as the join page marks one: its border in ink and a sentence under
+   it, and no colour. */
+.ob { max-width: 680px; margin: 0 auto; }
+.ob-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+@media (max-width: 620px) { .ob-pair { grid-template-columns: minmax(0, 1fr); } }
+.ob-lead, .ob-foot { line-height: 1.6; }
+.ob-foot { margin-top: 16px; }
+.ob-hint { margin-top: 6px; line-height: 1.55; }
+.ob-narrow { max-width: 260px; }
+/* A text field here looks like the box and the lists beside it, and like
+   the join page the member has just come through, rather than taking the
+   app's plain input. */
+.ob .fld input {
+  background: var(--recess); border-radius: 10px; padding: 11px 13px; font-size: 14px;
+}
+.ob .lbl .opt { text-transform: none; letter-spacing: 0; font-weight: 500; margin-left: 6px; }
+.ob [aria-invalid="true"] { border-color: var(--danger); }
+.ob-msg { margin-top: 6px; font-size: 13px; font-weight: 600; line-height: 1.5; }
+.ob-submit { margin-top: var(--gap); }
+.ob-note { margin-top: 10px; line-height: 1.55; }
+/* The rule above sets 14px and outweighs the 16px the finger rule gives
+   every field, so 16px is said again here, where it wins, or iOS zooms the
+   page into the first field it focuses. */
+@media (pointer: coarse) { .ob .fld input, .ob .fld textarea, .ob .fld select { font-size: 16px; } }

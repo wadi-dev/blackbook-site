@@ -160,6 +160,107 @@
     }, err => toast(said(err, "That give could not be found. Reload and try again.")));
   }
 
+  /* The onboarding screen (home.js): the details, a first ask and a first
+     give, in one POST to /api/me/onboarding. What can be told without the
+     server is checked here first, each sentence under its own field. Then
+     one write at a time, so a double tap is one request. The answer is the
+     member's own record, now onboarded, and it goes straight into the store,
+     so the gate (core.js) opens on the next render; me, asks and gives are
+     read again. A field the server refuses gets the server's sentence under
+     it, and anything else it says goes under Submit. Everything typed stays
+     as it was until the server has taken it. */
+  const OB_EMPTY = {
+    first_name: "Please fill this in.", last_name: "Please fill this in.",
+    firm: "Please fill this in.", role_title: "Please fill this in.", city: "Please fill this in.",
+    ask_title: "Please say what you need.", ask_category: "Please choose which type it is.",
+    give_description: "Please say what you can open.", give_category: "Please choose which type it is."
+  };
+  const OB_CHECK = "Please check the fields marked above.";
+
+  /* The join page's parser (assets/join.js), the same rule as the server's.
+     Returns the address in the one shape the API stores, or null. */
+  const HANDLE = /^\/in\/([A-Za-z0-9][A-Za-z0-9._%-]{1,99})\/?$/;
+  const profileUrl = raw => {
+    const text = raw.trim();
+    if (!text || /\s/.test(text)) return null;
+    let url;
+    try {
+      url = new URL(/^https?:\/\//i.test(text) ? text : "https://" + text);
+    } catch (_) {
+      return null;
+    }
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    const host = url.hostname.toLowerCase();
+    if (host !== "linkedin.com" && !host.endsWith(".linkedin.com")) return null;
+    const m = HANDLE.exec(url.pathname);
+    return m ? "https://www.linkedin.com/in/" + m[1] : null;
+  };
+
+  /* Draws the screen again with each field's sentence under it, and puts
+     the cursor in the first field marked. */
+  function onboardRefused(errors, note) {
+    const ob = BB.state.onboarding;
+    if (!ob || BB.state.screen !== "onboarding") return;
+    ob.errors = errors;
+    ob.note = note;
+    render();
+    const first = document.querySelector('#screen [aria-invalid="true"]');
+    if (first) first.focus();
+  }
+
+  function sendOnboarding() {
+    const ob = BB.state.onboarding;
+    if (!ob) return;
+    const d = ob.draft;
+    const errors = {};
+    Object.keys(OB_EMPTY).forEach(k => { if (!d[k].trim()) errors[k] = OB_EMPTY[k]; });
+    const linkedin = d.linkedin_url.trim() ? profileUrl(d.linkedin_url) : "";
+    if (linkedin === null) {
+      errors.linkedin_url = "Please check it. It should look like linkedin.com/in/your-name.";
+    }
+    if (Object.keys(errors).length) { onboardRefused(errors, OB_CHECK); return; }
+    const body = {
+      profile: { first_name: d.first_name, last_name: d.last_name, role_title: d.role_title,
+                 firm: d.firm, city: d.city, linkedin_url: linkedin },
+      ask: { category: d.ask_category, title: d.ask_title },
+      give: { category: d.give_category, description: d.give_description,
+              confidence: Number(d.give_confidence) }
+    };
+    const sent = BB.store.write("onboarding", () => BB.api("/api/me/onboarding",
+      { method: "POST", body }),
+      { update: { me: (held, view) => view }, invalidate: ["me", "asks", "gives"] });
+    if (!sent) return;
+    sent.then(() => {
+      BB.state.onboarding = null;
+      BB.state.screen = "home";
+      render();
+      window.scrollTo(0, 0);
+      toast("Saved. Welcome to Blackbook London.");
+    }, err => {
+      /* Done already, in another tab: everything this page holds is out of
+         date, so it is all read again, and the gate opens on that. */
+      if (err && err.status === 409) {
+        BB.state.onboarding = null;
+        BB.store.clear();
+        render();
+        toast(err.detail);
+        return;
+      }
+      /* A 422 names each field it refused by where it sits in the body:
+         ["body", "profile", "city"], ["body", "ask", "title"]. */
+      const refused = {};
+      let note = "";
+      (err && Array.isArray(err.serverDetail) ? err.serverDetail : []).forEach(item => {
+        const [, part, name] = (item && item.loc) || [];
+        const key = part === "profile" ? name : (part === "ask" || part === "give") ? part + "_" + name : null;
+        if (key && key in ob.draft) refused[key] = refused[key] || item.msg;
+        else note = note || item.msg;
+      });
+      onboardRefused(refused, note || (Object.keys(refused).length ? OB_CHECK
+        : said(err, "That could not be saved. Try again in a moment.")));
+    });
+  }
+
   /* Your data, fetched each time it is asked for and kept in the screen's
      state rather than the store: an export is a record of one moment.
      BB.store.write is used for its guard, one request per button at a time,
@@ -378,9 +479,13 @@
        store again for whatever the screen still lacks. */
     if (e.target.closest("[data-store-retry]")) { render(); return; }
 
+    if (e.target.closest('[data-onboard="submit"]')) { sendOnboarding(); return; }
+
     /* Gives, "The types": one definition open at a time. Toggled on the
        buttons themselves rather than by a render, so the height transition
-       runs; BB.state.openType keeps the open one open across re-renders. */
+       runs. A render of Gives leaves the card where it is (gives.js), and
+       BB.state.openType keeps the open one open when Gives is drawn afresh,
+       after a visit to another screen. */
     const typeBtn = e.target.closest("[data-type-toggle]");
     if (typeBtn) {
       const open = typeBtn.getAttribute("aria-expanded") !== "true";
@@ -642,6 +747,28 @@
     if (e.target.id === "ask-text") {
       const count = document.getElementById("ask-count");
       if (count) count.textContent = askCount(e.target.value);
+    }
+    /* Onboarding keeps each field as it is typed, and a field typed into is
+       no longer marked, as on the join page. */
+    const ob = BB.state.onboarding;
+    const key = e.target.dataset && e.target.dataset.ob;
+    if (ob && key && key in ob.draft) {
+      ob.draft[key] = e.target.value;
+      if (key === "ask_title") {
+        const count = document.getElementById("ob-ask_title-hint");
+        if (count) count.textContent = askCount(e.target.value);
+      }
+      if (ob.errors[key]) {
+        delete ob.errors[key];
+        e.target.removeAttribute("aria-invalid");
+        const line = document.getElementById("ob-" + key + "-msg");
+        if (line) { line.textContent = ""; line.hidden = true; }
+        if (ob.note === OB_CHECK && !Object.keys(ob.errors).length) {
+          ob.note = "";
+          const note = document.querySelector("#screen .ob-note");
+          if (note) { note.textContent = ""; note.hidden = true; }
+        }
+      }
     }
     if (e.target.id === "q") {
       BB.state.query = e.target.value;
