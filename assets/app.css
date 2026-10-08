@@ -342,81 +342,76 @@ strong, b { font-weight: 650; }
 }
 
 /* -------------------------------------------------------------- graph --- */
+/* The Network graph (screens/network.js), drawn by D3 into an SVG. Every
+   colour here is a token, so a theme flip repaints it with everything else
+   and nothing has to draw it again. Rounded squares for people, as
+   everywhere: you are the large inked one in the middle with a ring round
+   it, the people you invited are filled, and the people they invited are
+   outlined and hatched, the same veil a stranger's tile wears. */
 
-#graph {
-  width: 100%; display: block;
-  touch-action: none;          /* the drag is ours, not the browser's scroll */
-  cursor: default;             /* the canvas does not move; only the nodes do */
-  user-select: none;
+/* Edge to edge: the graph is the card. */
+.card.net-card { padding: 0; overflow: hidden; }
+.net {
+  display: block; width: 100%;
+  height: clamp(300px, 58vh, 560px);
+  height: clamp(300px, 58dvh, 560px);
+  /* One finger scrolls the page, two pinch and move the graph. A person is
+     still dragged with one, because D3 sets touch-action: none on each
+     node. */
+  touch-action: pan-y;
+  user-select: none; -webkit-user-select: none;
+  cursor: grab;
 }
-#graph.dragging { cursor: grabbing; }
-.gnode { cursor: grab; }
-#graph.dragging .gnode { cursor: grabbing; }
+.net:active { cursor: grabbing; }
 
-/* A drag that leaves the SVG would otherwise select the caption, the headings
-   and the tie list. Selected text here is a solid black block. */
-body.dragging, body.dragging * { user-select: none !important; }
+.net-edges line { stroke: var(--line-strong); stroke-width: 1; }
+.net-edges line.far { stroke: var(--line); }
 
-/* The rect scales, not the group: the group's transform is the node's position
-   and a transition on it would make the drag lag the cursor. */
-.gnode rect {
+.net-node { cursor: pointer; }
+/* The square scales, not the group: the group's transform is the node's
+   position, and a transition on it would make a drag lag the finger. */
+.net-shape {
   transform-box: fill-box; transform-origin: center;
-  transition: transform .22s var(--ease), stroke .22s var(--ease);
+  transition: transform .2s var(--ease), stroke .14s var(--ease);
 }
-.gnode:hover rect { stroke: var(--accent); }
-.gnode.grabbed rect { transform: scale(1.14); stroke: var(--accent); }
+.net-node:hover .net-shape, .net-node.grabbed .net-shape { transform: scale(1.08); }
+.net-node.me .net-shape, .net-node.known .net-shape { fill: var(--accent); }
+.net-ring { fill: none; stroke: var(--line-strong); }
+.net-node.veiled .net-shape {
+  fill: var(--surface); stroke: var(--line-strong); stroke-dasharray: 3 3;
+}
+.net-node.veiled:hover .net-shape { stroke: var(--accent); }
+.net-veil { fill: url(#net-hatch); pointer-events: none; }
+#net-hatch rect { fill: var(--line); }
 
-/* You are the fixed point, and nothing moves you. The hub opens Home on a tap
-   and is not draggable, so it must not offer the grab cursor or the lift. */
-.gme { cursor: pointer; }
-.gme rect { transition: none; }
-.gme:hover rect { stroke: none; }
-
-#graph line { transition: opacity .22s var(--ease); }
-#graph.dragging line { opacity: .55; }
-
-/* Knocked out of whatever sits behind it.
-
-   Labels are drawn after the edges, so any edge passing under one cut straight
-   through the letterforms: on a strong tie the stroke is over 4 units wide, and
-   it took out the bar of an H and the whole of a full stop. paint-order lays a
-   fat surface-coloured stroke down first and the fill on top, which clears a
-   halo the exact shape of the text.
-
-   The halo must use the surface token rather than white, or it paints a bright
-   smear across the graph in dark mode.
-
-   Full ink rather than muted, because these are names now, and the name is how
-   you find someone on this screen. */
-.gnode .glabel {
-  fill: var(--text);
-  paint-order: stroke fill;
-  stroke: var(--surface);
-  stroke-width: 3.5px;
+.net-ini {
+  fill: var(--surface); text-anchor: middle; pointer-events: none;
+  font-family: var(--font-display); font-weight: 650;
+}
+/* Knocked out of the lines behind it: a fat surface-coloured stroke goes
+   down first and the letters on top, so an edge passing under a label never
+   cuts through it. The surface token, not white, or it smears in dark. */
+.net-label {
+  fill: var(--text); text-anchor: middle;
+  font-family: var(--font-body); font-size: 11px; font-weight: 600;
+  paint-order: stroke fill; stroke: var(--surface); stroke-width: 3.5px;
   stroke-linejoin: round;
 }
+.net-node.me .net-label { font-size: 12.5px; font-weight: 650; }
+.net-node.veiled .net-label { fill: var(--muted); font-size: 10px; font-weight: 550; }
 
-/* The veiled ones stay quiet. They carry a seat, never a name, and should not
-   compete with the people you actually know. */
-.gnode.gfar .glabel { fill: var(--muted); stroke-width: 3px; }
-
-/* Second degree. Dashed and smaller, so the eye reads it as provisional
-   without needing a legend. It never carries a name. */
-.gfar rect { transition: stroke .22s var(--ease); }
-.gfar:hover rect { stroke: var(--accent); }
-.gedge-far { pointer-events: none; }
-
-/* Caption and Reset sit on one row. The caption may run to two lines inside its
-   own column, but the button stays beside it rather than dropping under. */
+/* The caption under the graph. */
 .graph-foot {
-  display: flex; align-items: center; gap: 16px; justify-content: space-between;
   padding: 12px 18px 14px; border-top: 1px solid var(--line);
 }
-.graph-foot p { flex: 1 1 auto; min-width: 0; }
-.graph-foot .btn { flex: 0 0 auto; }
 
-/* Below this the row genuinely has no room, so let it stack. */
-@media (max-width: 560px) { .graph-foot { flex-wrap: wrap; } }
+/* Read by a screen reader and never drawn: the Network graph's list of the
+   people in it. */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%);
+  white-space: nowrap; border: 0;
+}
 
 /* ------------------------------------------------------- bottom tabs --- */
 
@@ -1044,3 +1039,38 @@ select {
 }
 .lineage-node:last-child { border-bottom: 0; }
 .lineage-name { font-weight: 650; font-size: 14px; min-width: 0; }
+
+/* ------------------------------------------- the types, on Gives --- */
+
+/* An accordion. The body animates on grid rows rather than on a measured
+   height, so it follows the text at any length; a closed body is hidden from
+   screen readers once it has finished closing. The global reduced-motion rule
+   above turns every transition here off. */
+.type-row { border-top: 1px solid var(--line); }
+.type-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; padding: 10px 0; background: none; border: 0; color: inherit;
+  font: inherit; font-size: 13.5px; font-weight: 600; text-align: left; cursor: pointer;
+}
+.type-plain { cursor: default; }
+.type-chev { flex: none; color: var(--muted); transition: transform .3s var(--ease); }
+.type-head:hover .type-chev { color: var(--text); }
+.type-head[aria-expanded="true"] .type-chev { transform: rotate(180deg); color: var(--text); }
+.type-body {
+  display: grid; grid-template-rows: 0fr; visibility: hidden;
+  transition: grid-template-rows .34s var(--ease), visibility 0s linear .34s;
+}
+.type-head[aria-expanded="true"] + .type-body {
+  grid-template-rows: 1fr; visibility: visible;
+  transition: grid-template-rows .34s var(--ease), visibility 0s;
+}
+.type-inner { overflow: hidden; min-height: 0; }
+.type-inner p {
+  margin: 0; padding: 0 0 12px; line-height: 1.6;
+  opacity: 0; transform: translateY(-4px);
+  transition: opacity .22s var(--ease), transform .3s var(--ease);
+}
+.type-head[aria-expanded="true"] + .type-body p {
+  opacity: 1; transform: none; transition-delay: .06s;
+}
+@media (pointer: coarse) { .type-head { min-height: 44px; } }

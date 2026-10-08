@@ -6,6 +6,26 @@
    either side are shown. Adding, editing and removing go to the server
    (boot.js), one give at a time, addressed by id. */
 
+/* One sentence for each type, read as what a member can open for someone,
+   never as the deal itself: a give is an introduction, and the terms behind it
+   are the members' own. Keyed by the value the API serves. */
+const TYPE_NOTES = {
+  capital_raise: "Access to investors, funds or family offices who back businesses and would take a first conversation.",
+  buyout: "Access to buyers who acquire whole businesses, or to owners ready to hand theirs on.",
+  sale_or_exit: "Access to the people who buy businesses, or who guide owners through stepping back from one.",
+  strategic_partnership: "An introduction to a firm whose reach, product or customers would strengthen another member's business.",
+  joint_venture: "An introduction to a counterpart willing to build something new together and share in the outcome.",
+  debt_or_refinancing: "Access to lenders, banks or credit funds who provide borrowing to businesses.",
+  real_assets: "Access to owners, developers or holders of property, land, infrastructure or other physical assets.",
+  market_entry: "A first door into a new country, sector or customer base where you already have standing.",
+  supplier_or_distribution: "An introduction to a supplier, manufacturer or distributor who can make, source or carry a product.",
+  leadership_hire: "An introduction to a proven senior leader for a board seat or a top role.",
+  regulatory_or_legal: "An introduction to someone who knows how a regulator, licence or legal question really works.",
+  introduction_to_a_firm: "A warm introduction to a named firm where you know the person who decides.",
+  judgement: "Your own view, drawn from experience, on a decision another member is weighing.",
+  operating_experience: "Hands-on knowledge from having built, run or turned around a business like theirs."
+};
+
 BB.screens.gives = function () {
   const gives = API.gives();
   const kinds = API.categories().give;
@@ -87,10 +107,26 @@ BB.screens.gives = function () {
           that share its words, on a list only we read. Other members never see
           your gives.
         </p>
-        ${kinds.map(k => `
-          <div style="padding:10px 0;border-top:1px solid var(--line)">
-            <span style="font-size:13.5px;font-weight:600">${esc(k.label)}</span>
-          </div>`).join("")}
+        ${kinds.map(k => {
+          const open = BB.state.openType === k.value;
+          const note = TYPE_NOTES[k.value];
+          if (!note) return `
+          <div class="type-row"><span class="type-head type-plain">${esc(k.label)}</span></div>`;
+          return `
+          <div class="type-row">
+            <button type="button" class="type-head" data-type-toggle="${esc(k.value)}"
+              aria-expanded="${open}" aria-controls="type-${esc(k.value)}">
+              <span>${esc(k.label)}</span>
+              <svg class="type-chev" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+                <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor"
+                  stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <div class="type-body" id="type-${esc(k.value)}">
+              <div class="type-inner"><p class="small muted">${esc(note)}</p></div>
+            </div>
+          </div>`;
+        }).join("")}
       </div>
 
       <div class="card">

@@ -215,16 +215,17 @@ const API = {
      and fetch nothing: a screen that calls one names its key in .needs, so
      the data is there before the screen draws. ---------------------------- */
 
-  /* SelfView for a member, StaffView for the founder seat. The founder seat
-     is shown under the trading name whatever the seat itself is called,
-     because no screen names the founder. */
+  /* SelfView for a member, StaffView for the founder seat. Always the
+     caller's own name, the founder's included: other members see the
+     founder seat as Blackbook London because the API masks it in what they
+     read, but his own screens show him his real name (8 October 2026). */
   me() {
     const v = BB.store.peek("me");
     if (!v) return undefined;
     const founder = v.role === "founder";
     return {
       id: v.id,
-      ...splitName(founder ? "Blackbook London" : v.name),
+      ...splitName(v.name),
       role: v.role_title, firm: v.firm, city: v.city, sector: v.sector,
       founder,
       since: shortDate.format(new Date(v.member_since || v.created_at)),
@@ -264,6 +265,29 @@ const API = {
     id: c.id, ...splitName(c.name),
     role: c.role_title, firm: c.firm, city: c.city, sector: c.sector
   })),
+
+  /* The caller's own invitation tree, two levels deep, as GET /api/network
+     answers it: the caller at the centre under their own name, the people
+     they invited (degree 1) and the people those invited (degree 2), and a
+     line from each inviter to each invitee. A node's label is a name only
+     when the two are connected (`known`); otherwise it is the seat's handle,
+     its role and sector, and nothing else. Anyone the API would not show
+     the caller is simply absent, with everything below them. Undefined
+     until the answer is in: the Network screen names it in .wants, not
+     .needs, and draws without it. */
+  network() {
+    const v = BB.store.peek("network");
+    if (!v) return undefined;
+    return {
+      center: { id: v.center.id, ...splitName(v.center.name) },
+      nodes: v.nodes.map(n => ({
+        id: n.id, degree: n.degree, known: n.known, label: n.label,
+        via: n.via, sector: n.sector, city: n.city,
+        ...(n.known ? splitName(n.label) : { first: "", last: "", initials: "" })
+      })),
+      edges: v.edges.map(e => ({ from: e.from, to: e.to }))
+    };
+  },
 
   /* The member's introductions, both sides, as AskerView: id, state, side,
      requested_at, and contact once released. Oldest first, as served. */

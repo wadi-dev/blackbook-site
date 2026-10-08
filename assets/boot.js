@@ -30,10 +30,17 @@
                    asks: "asks", gives: "gives", members: "members",
                    introductions: "introductions" };
   const target = () => LINKED[(location.hash || "").slice(1)];
+  /* The invitation card sits under the Network graph, whose card grows when
+     the graph's answer lands, so the scroll waits for that answer, or for it
+     failing, and then a frame: the render the answer sets off (core.js) has
+     run by then. */
   const settle = name => {
     if (name === "invite" || location.hash === "#invite") {
-      const card = document.getElementById("invite");
-      if (card) card.scrollIntoView({ block: "start" });
+      const toCard = () => requestAnimationFrame(() => {
+        const card = document.getElementById("invite");
+        if (card) card.scrollIntoView({ block: "start" });
+      });
+      BB.store.need(BB.screens.network.wants).then(toCard, toCard);
     }
     if (history.replaceState) {
       history.replaceState(null, "", location.pathname + location.search);
@@ -232,13 +239,14 @@
   /* Met in person, addressed by the asker's id: confirm or decline, each a
      POST with no body. Either way the request leaves the list as soon as the
      server agrees. A confirmation makes a connection, so the connections are
-     read again too, and so is the asker's card if this page holds it. */
+     read again too, and so are the asker's card if this page holds it and
+     the Network graph, which names whoever is now connected. */
   function sendMet(what, id) {
     if (what !== "confirm" && what !== "decline") return;
     const sent = BB.store.write(id, () => BB.api("/api/ties/requests/"
       + encodeURIComponent(id) + "/" + what, { method: "POST" }),
       { update: { tieRequests: list => list.filter(r => r.id !== id) },
-        invalidate: what === "confirm" ? ["tieRequests", "ties", "member:" + id] : ["tieRequests"] });
+        invalidate: what === "confirm" ? ["tieRequests", "ties", "member:" + id, "network"] : ["tieRequests"] });
     if (!sent) return;
     const redraw = () => { if (BB.state.screen === "introductions") render(); };
     sent.then(() => {
@@ -287,12 +295,12 @@
   /* Blocking, from a card. The API answers 204 whatever happened. From then
      on the two are an unknown id to each other, so the card closes, and
      everything that could still name the other is read again: the card
-     itself, the connections, a released introduction's details, and the
-     list in Settings. */
+     itself, the connections, a released introduction's details, the
+     Network graph and the list in Settings. */
   function sendBlock(id) {
     const sent = BB.store.write("block:" + id, () => BB.api("/api/blocks",
       { method: "POST", body: { member_id: id } }),
-      { invalidate: ["member:" + id, "ties", "introductions", "blocks"] });
+      { invalidate: ["member:" + id, "ties", "introductions", "blocks", "network"] });
     if (!sent) return;
     sent.then(() => {
       BB.state.blocking = null;
@@ -304,12 +312,12 @@
 
   /* Unblocking, by the block's own id, from Settings. The list does not say
      who it was, so every card this page holds is read again, with the
-     connections and the introductions. */
+     connections, the introductions and the Network graph. */
   function sendUnblock(id) {
     const sent = BB.store.write("unblock:" + id, () => BB.api("/api/blocks/"
       + encodeURIComponent(id), { method: "DELETE" }),
       { update: { blocks: list => list.filter(b => b.id !== id) },
-        invalidate: ["blocks", "member", "ties", "introductions"] });
+        invalidate: ["blocks", "member", "ties", "introductions", "network"] });
     if (!sent) return;
     const redraw = () => { if (BB.state.screen === "settings") render(); };
     sent.then(() => { toast("Unblocked. They are not told either way."); redraw(); },
@@ -369,6 +377,19 @@
     /* Try again on the render gate's error box (core.js). A render asks the
        store again for whatever the screen still lacks. */
     if (e.target.closest("[data-store-retry]")) { render(); return; }
+
+    /* Gives, "The types": one definition open at a time. Toggled on the
+       buttons themselves rather than by a render, so the height transition
+       runs; BB.state.openType keeps the open one open across re-renders. */
+    const typeBtn = e.target.closest("[data-type-toggle]");
+    if (typeBtn) {
+      const open = typeBtn.getAttribute("aria-expanded") !== "true";
+      document.querySelectorAll('[data-type-toggle][aria-expanded="true"]')
+        .forEach(b => b.setAttribute("aria-expanded", "false"));
+      typeBtn.setAttribute("aria-expanded", String(open));
+      BB.state.openType = open ? typeBtn.dataset.typeToggle : null;
+      return;
+    }
 
     /* ---- Introductions: accept, decline and withdraw ---------------------- */
     const intro = e.target.closest("[data-intro]");

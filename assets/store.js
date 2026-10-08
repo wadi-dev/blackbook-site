@@ -220,7 +220,8 @@
     queued = false;
     if (!landed.size || typeof render !== "function") return;
     const fn = root.screens && (root.screens[root.state.screen] || root.screens.home);
-    const needs = (fn && fn.needs) || [];
+    /* The keys it draws without (.wants, core.js) redraw it as well. */
+    const needs = [].concat((fn && fn.needs) || [], (fn && fn.wants) || []);
     if (!needs.some(k => landed.has(k))) { landed.clear(); return; }
     if (busy()) return;
     landed.clear();
@@ -244,6 +245,7 @@
   define("tieRequests", get("/api/ties/requests"));
   define("suggestions", get("/api/suggestions"));
   define("blocks", get("/api/blocks"));
+  define("network", get("/api/network"));
   define("member", (id, reason) => root.api("/api/members/" + encodeURIComponent(id)
     + (reason ? "?reason=" + encodeURIComponent(reason) : "")), { fresh: Infinity });
   /* search:<query string>, as URLSearchParams writes it: search:sector=x&city=y */

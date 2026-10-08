@@ -237,9 +237,28 @@ function go(screen) {
    answers [data-store-retry] by rendering again). Screens without .needs
    draw at once, as they always have.
 
+   A screen can name keys in .wants as well, for data that only part of it
+   shows. It draws at once without them, and again when they land; until
+   then its element marked data-wants holds its own loading line, and if a
+   fetch fails, that element alone gets the error box. So the Network graph
+   failing to load leaves the invitation under it in place.
+
    Each render takes a number, so a fetch that lands after the member has
-   moved on, or after a later render has drawn, redraws nothing. */
+   moved on, or after a later render has drawn, redraws nothing.
+
+   A screen that declares .mount is handed #screen once its markup is in,
+   for what a string of HTML cannot do: the Network graph lays itself out
+   and takes its gestures there. */
 let renders = 0;
+
+/* A 404 body differs by route, so it is never shown here. */
+function cannotLoad(err) {
+  const why = err && err.status !== 404 && err.detail ? err.detail : "Try again in a moment.";
+  return `<div class="empty" role="alert">
+          <b>Could not load this.</b>${esc(why)}
+          <div style="margin-top:14px"><button class="btn sm" data-store-retry>Try again</button></div>
+        </div>`;
+}
 
 function render() {
   if (HIDDEN.includes(BB.state.screen)) BB.state.screen = "home";
@@ -253,18 +272,21 @@ function render() {
       host.innerHTML = `<div class="shell"><p class="admin-state muted" role="status">Loading</p></div>`;
       waiting.then(() => { if (seq === renders) render(); }, err => {
         if (seq !== renders) return;
-        /* A 404 body differs by route, so it is never shown here. */
-        const why = err && err.status !== 404 && err.detail ? err.detail : "Try again in a moment.";
-        host.innerHTML = `<div class="shell"><div class="empty" role="alert">
-          <b>Could not load this.</b>${esc(why)}
-          <div style="margin-top:14px"><button class="btn sm" data-store-retry>Try again</button></div>
-        </div></div>`;
+        host.innerHTML = `<div class="shell">${cannotLoad(err)}</div>`;
       });
       return;
     }
   }
   host.innerHTML = `<div class="shell">${fn()}</div>`;
   wire(host);
+  if (fn.mount) fn.mount(host);
+  if (fn.wants) {
+    const missing = fn.wants.some(k => BB.store.peek(k) === undefined);
+    BB.store.need(fn.wants).then(() => { if (missing && seq === renders) render(); }, err => {
+      if (seq !== renders) return;
+      host.querySelectorAll("[data-wants]").forEach(part => { part.innerHTML = cannotLoad(err); });
+    });
+  }
 }
 
 /* Checked live rather than cached: a member who turns the setting on mid-session
@@ -273,284 +295,8 @@ function render() {
    by requestAnimationFrame. */
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/* ------------------------------------------------------------- graph ----- */
-/* Drag a node, drag the background to move the whole web, scroll to zoom.
-
-   Positions are mutated straight into the DOM during a drag and only written
-   back to BB.graph on release. Re-rendering mid-drag would rebuild the SVG
-   under the pointer and drop the gesture. */
-
-/* wireGraph runs on every render, so the resize listener has to be replaced
-   rather than stacked. Ten visits to the network screen would otherwise leave
-   ten live handlers measuring a graph that no longer exists. */
-let graphResize = null;
-
-/* The one transform the graph has, derived rather than stored.
-
-   Scale is the only free variable now. The translate exists purely to cancel
-   out what scaling does to the hub: a node at (250,215) scaled by s lands at
-   (250s,215s), so translating back by (250-250s, 215-215s) leaves it exactly
-   where it started. You stay nailed to the middle of the card at every zoom
-   level, and the web expands and contracts around you.
-
-   There is deliberately no pan. Two independent offsets are what let the whole
-   graph wander off the canvas, and nothing in this screen needs them: the
-   layout is yours to arrange node by node, and zoom reaches anything the
-   viewport cannot already hold. */
-function graphTransform() {
-  const G = BB.graph;
-  const h = (G && G.pos.__me) || { x: 250, y: 215 };
-  const s = (G && G.scale) || 1;
-  return `translate(${(h.x * (1 - s)).toFixed(2)},${(h.y * (1 - s)).toFixed(2)}) scale(${s})`;
-}
-
-function wireGraph(root) {
-  const svg = root.querySelector("#graph");
-  if (graphResize) { removeEventListener("resize", graphResize); graphResize = null; }
-  if (!svg) return;
-  const view = svg.querySelector("#graph-view");
-  const G = BB.graph;
-
-  /* Screen pixels to viewBox units. Node coordinates live inside the scaled
-     group, so they divide by scale as well; the pan translate does not, because
-     it is applied before the scale. Adding raw pixels to the pan made the web
-     travel about 1.4x faster than the cursor.
-
-     The width is cached rather than measured per move. getBoundingClientRect
-     forces a synchronous layout, and calling it inside pointermove is the
-     read-write-read pattern that janks a drag on a phone. The SVG only changes
-     size on resize, so that is when it is re-read. */
-  let svgW = 0;
-  const measure = () => { svgW = svg.getBoundingClientRect().width || 1; };
-  measure();
-  graphResize = measure;
-  addEventListener("resize", graphResize, { passive: true });
-
-  const pxToView = () => 500 / svgW;
-  const unit = () => pxToView() / G.scale;
-
-  let mode = null, id = null, last = null, moved = 0;
-  let dragEl = null, dragEdge = null;   /* resolved once, on pointerdown */
-
-  /* A phone has no wheel, and zoom is the graph's one navigation. Pinch is
-     the wheel's touch twin: two active pointers, the change in the distance
-     between them multiplied straight onto the scale. Anchoring needs no
-     extra maths because graphTransform derives the translate from the scale
-     with the hub pinned, exactly as it does for the wheel. */
-  const pts = new Map();                /* active pointers, for the pinch */
-  let pinchDist = 0;
-
-  const paint = () => view.setAttribute("transform", graphTransform());
-
-  /* How far out you may zoom depends on how big the web actually is. A fixed
-     floor of 0.45 was fine at seven connections and wrong at two hundred: the
-     layout measured 1056 x 1053 while full zoom-out showed 1111 x 956, so the
-     bottom of your own network was unreachable. */
-  const zoomFloor = () => {
-    const p = Object.values(G.pos);
-    if (p.length < 3) return 0.45;
-    const xs = p.map(q => q.x), ys = p.map(q => q.y);
-    const w = Math.max(...xs) - Math.min(...xs) + 90;   /* node plus its label */
-    const h = Math.max(...ys) - Math.min(...ys) + 90;
-    return Math.max(0.1, Math.min(0.45, 500 / w, 430 / h));
-  };
-
-  /* Writes only. The elements are resolved on pointerdown and reused for the
-     whole gesture, so a move costs three setAttribute calls and no DOM query. */
-  const place = nodeId => {
-    const p = G.pos[nodeId];
-    const el = dragEl || view.querySelector(`[data-node="${nodeId}"]`);
-    if (el) el.setAttribute("transform", `translate(${p.x},${p.y})`);
-    if (nodeId === "__me") {
-      /* Edges all run from you, so moving yourself moves every line. */
-      view.querySelectorAll("[data-edge]").forEach(l => {
-        l.setAttribute("x1", p.x); l.setAttribute("y1", p.y);
-      });
-    } else {
-      const e = dragEdge || view.querySelector(`[data-edge="${nodeId}"]`);
-      if (e) { e.setAttribute("x2", p.x); e.setAttribute("y2", p.y); }
-    }
-  };
-
-  svg.addEventListener("pointerdown", e => {
-    /* Without this a real mouse drag starts a text selection that runs out of
-       the SVG and across the caption, the headings and the tie list. Selected
-       text in a monochrome palette paints as solid black, which is what the
-       graph "going black" actually was. */
-    e.preventDefault();
-
-    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pts.size === 2) {
-      /* A second finger turns whatever was happening into a pinch. The node
-         that was mid-drag simply stays where it is; nothing to undo. */
-      view.querySelectorAll(".grabbed").forEach(n => n.classList.remove("grabbed"));
-      svg.classList.remove("dragging");
-      document.body.classList.remove("dragging");
-      mode = "pinch"; id = null; dragEl = null; dragEdge = null;
-      const [a, b] = [...pts.values()];
-      pinchDist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
-      try { svg.setPointerCapture(e.pointerId); } catch (err) { /* nicety */ }
-      return;
-    }
-
-    /* You are the fixed point, and so is the web around you. Only the people
-       in it move.
-
-       The background used to pan the whole graph, which meant the centre slid
-       about the card and the arrangement you had made drifted with it. Dragging
-       is now a thing you do TO a connection, not to the canvas: press a node and
-       it follows you, press anywhere else and nothing moves at all. */
-    const node = e.target.closest("[data-node]");
-    if (!node) { mode = null; return; }
-
-    const hub = node.dataset.node === "__me";
-    mode = hub ? "hub" : "node";
-    id = hub ? null : node.dataset.node;
-    dragEl = hub ? null : node;
-    dragEdge = id ? view.querySelector(`[data-edge="${id}"]`) : null;
-    measure();                              /* one layout read per gesture */
-    last = { x: e.clientX, y: e.clientY };
-    moved = 0;
-    /* Guards first, capture second. setPointerCapture throws InvalidStateError
-       if the pointer is no longer active, and when it did, it took the rest of
-       this handler with it: mode was set but the selection guard was never
-       applied, which is the state the blackout happens in. */
-    if (mode === "node") {
-      svg.classList.add("dragging");
-      document.body.classList.add("dragging");
-      node.classList.add("grabbed");
-    }
-    try { svg.setPointerCapture(e.pointerId); } catch (err) { /* capture is a nicety */ }
-  });
-
-  svg.addEventListener("pointermove", e => {
-    if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (mode === "pinch") {
-      if (pts.size < 2) return;
-      const [a, b] = [...pts.values()];
-      const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
-      G.scale = Number(Math.min(2.4, Math.max(zoomFloor(),
-        G.scale * (d / pinchDist))).toFixed(4));
-      pinchDist = d;
-      paint();
-      return;
-    }
-    if (!mode) return;
-    const dx = e.clientX - last.x, dy = e.clientY - last.y;
-    last = { x: e.clientX, y: e.clientY };
-    moved += Math.abs(dx) + Math.abs(dy);
-    if (mode !== "node") return;      /* the hub is pressed, never dragged */
-
-    const u = unit();
-    const p = G.pos[id];
-    /* Clamped to the canvas. Unclamped, a node can be flung far enough out
-       that nothing but Reset brings it back, and Reset throws away the whole
-       arrangement to recover one node. */
-    p.x = Math.max(28, Math.min(472, p.x + dx * u));
-    p.y = Math.max(28, Math.min(402, p.y + dy * u));
-    place(id);
-  });
-
-  const end = e => {
-    if (e && e.pointerId != null) pts.delete(e.pointerId);
-    if (mode === "pinch") {
-      /* One finger lifting re-bases the pinch; the last one ends it. A pinch
-         is never a tap, so none of the open-profile logic below applies. */
-      if (pts.size >= 2) {
-        const [a, b] = [...pts.values()];
-        pinchDist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
-        return;
-      }
-      mode = null;
-      try {
-        if (e && e.pointerId != null && svg.hasPointerCapture(e.pointerId))
-          svg.releasePointerCapture(e.pointerId);
-      } catch (err) { /* already gone */ }
-      return;
-    }
-    if (!mode) return;
-    /* A drag must not also count as opening the profile. */
-    if (moved < 4) {
-      /* Your own node goes Home, which IS your profile. Opening the member
-         profile for yourself rendered it in the third person: "Their ask",
-         "I can help with this", "Request an introduction", and "no identity
-         released until X accepts" where X is the reader. */
-      if (mode === "hub") go("home");
-      /* A second-degree node is veiled. Opening the profile would print the
-         name of someone who has not agreed to be introduced to you, which is
-         the one thing this product promises never to do. It stays draggable;
-         it just does not open. */
-      else if (mode === "node" && dragEl && dragEl.classList.contains("gfar")) {
-        toast("You see the seat, not the name. Ask for an introduction from the list.");
-      }
-      else if (mode === "node") openMember(id, null);
-    }
-    view.querySelectorAll(".grabbed").forEach(n => n.classList.remove("grabbed"));
-    mode = null; id = null; dragEl = null; dragEdge = null;
-    svg.classList.remove("dragging");
-    document.body.classList.remove("dragging");
-    try {
-      if (e && e.pointerId != null && svg.hasPointerCapture(e.pointerId))
-        svg.releasePointerCapture(e.pointerId);
-    } catch (err) { /* already gone */ }
-  };
-  svg.addEventListener("pointerup", end);
-  svg.addEventListener("pointercancel", end);
-
-  /* Zoom about the hub, which is the one point that never moves.
-
-     It used to zoom toward the cursor, which is right for a map and wrong here:
-     it slid the centre off to one side, and the only way to bring it back was
-     the pan gesture that no longer exists. Anchoring on the hub means zooming
-     out pulls the whole web in toward you and zooming in pushes it outward,
-     with you sitting still in the middle throughout. Small steps so a trackpad
-     reads as continuous. */
-  svg.addEventListener("wheel", e => {
-    e.preventDefault();
-    G.scale = Number(Math.min(2.4, Math.max(zoomFloor(),
-      G.scale * (e.deltaY < 0 ? 1.06 : 0.945))).toFixed(4));
-    paint();
-  }, { passive: false });
-
-  /* Reset eases back rather than snapping, so you can see where it went. */
-  const reset = root.querySelector('[data-graph="reset"]');
-  if (reset) reset.addEventListener("click", () => {
-    const from = { ...BB.graph.pos, __s: G.scale };
-    BB.graph = null;
-    render();                                  /* re-seeds radially */
-    const to = BB.graph.pos, G2 = BB.graph;
-    const v2 = document.querySelector("#graph-view");
-    if (!v2 || reducedMotion()) return;
-
-    const ids = Object.keys(to).filter(k => from[k]);
-    const t0 = performance.now(), DUR = 420;
-    const ease = t => 1 - Math.pow(1 - t, 3);
-
-    const step = now => {
-      const k = ease(Math.min(1, (now - t0) / DUR));
-      G2.scale = from.__s + (1 - from.__s) * k;
-      v2.setAttribute("transform", graphTransform());
-      ids.forEach(nid => {
-        const x = from[nid].x + (to[nid].x - from[nid].x) * k;
-        const y = from[nid].y + (to[nid].y - from[nid].y) * k;
-        const el = v2.querySelector(`[data-node="${nid}"]`);
-        if (el) el.setAttribute("transform", `translate(${x},${y})`);
-        const edge = v2.querySelector(`[data-edge="${nid}"]`);
-        if (edge) { edge.setAttribute("x2", x); edge.setAttribute("y2", y); }
-        if (nid === "__me") v2.querySelectorAll("[data-edge]").forEach(l => {
-          l.setAttribute("x1", x); l.setAttribute("y1", y);
-        });
-      });
-      if (k < 1) requestAnimationFrame(step);
-      else ids.forEach(nid => { to[nid].x = to[nid].x; to[nid].y = to[nid].y; });
-    };
-    requestAnimationFrame(step);
-  });
-}
-
 /* Delegated wiring, re-applied after every render. */
 function wire(root) {
-  wireGraph(root);
   root.querySelectorAll("[data-go]").forEach(b =>
     b.addEventListener("click", () => go(b.dataset.go)));
   document.querySelectorAll(".topbar [data-go]").forEach(b =>
