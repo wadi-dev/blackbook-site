@@ -457,7 +457,7 @@ function undoIntro(memberId) {
     refreshDetail();
     toast("Withdrawn. They see only that it did not proceed.");
   }, err => toast(err && err.status === 404
-    ? "It can no longer be withdrawn here. Tell us and it will not proceed."
+    ? "This introduction has already been made or has already ended."
     : (err && err.detail) || "Something went wrong."));
 }
 

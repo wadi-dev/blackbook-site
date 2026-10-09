@@ -89,9 +89,11 @@ BB.screens.introductions = function () {
       label = "Released"; cls = "done";
       body = note("Their details are no longer shown here.");
     } else if (INTRO_LIVE.includes(i.state) && asker) {
-      /* The same card wherever it has got to, Withdraw included. Once it has
-         reached us the server refuses the withdrawal and boot.js says to tell
-         us instead, which is what the terms say. */
+      /* The same card wherever it has got to, Withdraw included. The asker
+         may withdraw at any point until we make the introduction (9 October
+         2026), which is what the terms say: refused once it had reached us,
+         the button told them the other side had said yes. Once it is made or
+         has ended the server refuses, and boot.js says so. */
       head = veiled("Your request", when);
       label = "Checking with them";
       body = `
@@ -101,8 +103,8 @@ BB.screens.introductions = function () {
           <button class="btn sm" data-intro="withdraw" data-id="${esc(i.id)}">Withdraw</button>
         </div>
         <p class="small muted" style="margin-top:10px;line-height:1.6">
-          You can withdraw until it reaches us for approval. After that, tell us
-          and it will not proceed. Either way they see only that it did not proceed.
+          You can withdraw at any point until the introduction is made. They see
+          only that it did not proceed.
         </p>`;
     } else if (i.state === "requested") {
       head = veiled("A request to you", when);

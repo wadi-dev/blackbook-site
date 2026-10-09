@@ -337,7 +337,7 @@
     decline: ["Declined, silently. They are told only that it did not proceed.",
               "That request is no longer open."],
     withdraw: ["Withdrawn. They see only that it did not proceed.",
-               "It can no longer be withdrawn here. Tell us and it will not proceed."]
+               "This introduction has already been made or has already ended."]
   };
   function sendIntro(what, id) {
     if (!INTRO_SAID[what]) return;
