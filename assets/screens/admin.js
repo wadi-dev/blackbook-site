@@ -141,13 +141,15 @@
      and that sentence is the whole of what the broker needs to read. The
      reload runs either way, because the list is the truth and the refusal
      may be the list having moved. `gone`, when given, is the screen's own
-     sentence for a 404, whose body differs by route. */
+     sentence for a 404, whose body differs by route. Resolves with the
+     server's answer, or with nothing after a refusal. */
   async function decide(id, path, payload, gone) {
     S.busy = id;
     S.notice = null;
     render();
+    let answer;
     try {
-      await BB.api(path, { method: "POST", body: payload });
+      answer = await BB.api(path, { method: "POST", body: payload });
     } catch (e) {
       S.notice = gone && e && e.status === 404 ? gone
         : e && e.detail ? e.detail : "Something went wrong.";
@@ -157,6 +159,24 @@
     await load();
     S.busy = null;
     if (isAdmin()) render();
+    return answer;
+  }
+
+  /* Approve is the one decision whose answer is read. Since 9 October 2026
+     the API sends the member their sign-in invitation inside the request,
+     and the StaffView it answers with carries invited_at once that has gone.
+     Null means the API had no key to send it with, which on the local
+     harness is always, so the toast says to send it by hand instead. A 502
+     is the invitation failing: the API rolled the approval back, so the
+     applicant is still on the list when it reloads, and the server's
+     sentence above it says to try again. One request however fast it is
+     tapped: S.busy is set before the first await and the click handler
+     returns while it is set. */
+  async function approve(id) {
+    const view = await decide(id, "/api/members/" + id + "/approve");
+    if (!view) return;
+    toast(view.invited_at ? "Approved. The invitation has been sent."
+      : "Approved. The invitation must be sent by hand.");
   }
 
   /* Release and Stop. A 404 is the introduction having moved on, released
@@ -415,7 +435,7 @@
     }
 
     if (kind === "approve") {
-      decide(id, "/api/members/" + id + "/approve");
+      approve(id);
       return;
     }
     if (kind === "reject") {
