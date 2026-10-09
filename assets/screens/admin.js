@@ -152,8 +152,11 @@
       S.notice = gone && e && e.status === 404 ? gone
         : e && e.detail ? e.detail : "Something went wrong.";
     }
-    S.busy = null;
+    /* Held until the list is read again, or the row just decided is drawn
+       live from the old list and a second click decides it twice. */
     await load();
+    S.busy = null;
+    if (isAdmin()) render();
   }
 
   /* Release and Stop. A 404 is the introduction having moved on, released
@@ -169,8 +172,10 @@
   /* A party's card, read only when asked for: every staff read of a card is
      a look recorded on that member's own trail, with this reason. The store
      keeps it for the page session, so closing it and opening it again reads
-     nothing. */
-  const CARD_REASON = "introduction review";
+     nothing. The reason is the one every other card read gives (core.js):
+     the member reads it beside the look, and a reason that named the
+     review would tell an asker the other side had said yes. */
+  const CARD_REASON = "member card";
 
   async function card(introId, memberId) {
     const key = introId + " " + memberId;
@@ -272,8 +277,9 @@
     } catch (e) {
       S.notice = e && e.detail ? e.detail : "Something went wrong.";
     }
-    S.busy = null;
     await load();
+    S.busy = null;
+    if (isAdmin()) render();
   }
 
   /* A concierge invitation is one POST from the founder's own seat, carrying
@@ -467,7 +473,7 @@
           <div class="grow">
             <div class="admin-name">${esc(r.name) || '<span class="muted">Unnamed</span>'}</div>
             <div class="small muted">${esc(r.role_title)} at ${esc(r.firm)}</div>
-            <div class="small muted">${esc(r.sector)} · ${esc(r.city)}</div>
+            <div class="small muted">${[r.sector, r.city].filter(Boolean).map(esc).join(" · ")}</div>
             <div class="small muted" style="margin-top:6px">${esc(referrerLine(r.referrer_id, byId))}
               · Applied ${esc(day(r.created_at))}, ${esc(ago(r.created_at))}</div>
           </div>
@@ -645,7 +651,7 @@
             <div class="small" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
               <div class="admin-name">${esc(v.name) || '<span class="muted">Unnamed</span>'}</div>
               <div class="muted">${esc(v.role_title)} at ${esc(v.firm)}</div>
-              <div class="muted">${esc(v.sector)} · ${esc(v.city)} · ${esc(cap(v.status))}</div>
+              <div class="muted">${[v.sector, v.city, cap(v.status)].filter(Boolean).map(esc).join(" · ")}</div>
               <div class="admin-link">${profileLink(v.linkedin_url)}</div>
               <div class="muted">${esc(v.email)}</div>
               ${v.vetting_notes ? `<div class="muted" style="margin-top:6px">${esc(v.vetting_notes)}</div>` : ""}
@@ -816,7 +822,7 @@
     if (S.tab === "lineage") return `
   <div class="card-head">
     <h2>Lineage</h2>
-    <span class="eyebrow">${S.lineage.rows.length} seats</span>
+    <span class="eyebrow">${plural(S.lineage.rows.length, "seat", "seats")}</span>
   </div>
   ${lineage()}`;
     if (S.tab === "inquiries") return `

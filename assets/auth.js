@@ -217,7 +217,8 @@
       const back = abs(safeBack(params.get("back")));
       if (clerk.session) { location.replace(back); await new Promise(() => {}); }
       if (params.get("why") === "signedout") {
-        notice("Your session ended. Sign in again to continue.");
+        notice("You were signed out. If this happens again straight after you sign in, "
+          + "email privacy@blackbook.london.");
       }
       clerk.mountSignIn(mount, {
         routing: "hash",
@@ -233,6 +234,11 @@
     if (!clerk.session) { toSignIn(); await new Promise(() => {}); }
 
     clerk.addListener(({ session }) => { if (!session) toSignIn("signedout"); });
+    /* Back after a sign out or an erasure can bring this page back from the
+       browser's back/forward cache, exactly as it was left, the member's
+       data on it. Loaded again instead, it runs the guard above, and with no
+       session it goes to sign in. */
+    addEventListener("pageshow", e => { if (e.persisted) location.reload(); });
     return clerk;
   })();
   ready.catch(() => {});
@@ -277,7 +283,13 @@
       await ready;
       leaving = true;
       if (DEV_BEARER) { location.replace(abs(HOME)); return; }
-      return clerk.signOut({ redirectUrl: signInUrl(why) });
+      /* A sign out that fails (no signal, or Clerk down) is said, over the
+         screen, so nobody walks away from a page they think is closed. */
+      return clerk.signOut({ redirectUrl: signInUrl(why) }).catch(e => {
+        leaving = false;
+        notice("Could not finish signing you out. Check your connection, then reload this page.");
+        throw e;
+      });
     },
 
     /* A plain object, so screens never reach into the SDK's resources. */

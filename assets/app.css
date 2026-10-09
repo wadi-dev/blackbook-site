@@ -290,7 +290,7 @@ strong, b { font-weight: 650; }
   height: 2px; background: var(--accent);
 }
 .nav .count {
-  display: inline-block; margin-left: 6px; padding: 0 5px;
+  position: absolute; top: 2px; right: -2px; padding: 0 5px;
   min-width: 16px; border-radius: var(--r-pill);
   background: var(--accent); color: var(--surface);
   font-size: 10.5px; font-weight: 650; line-height: 16px; text-align: center;
@@ -323,7 +323,7 @@ strong, b { font-weight: 650; }
 }
 .fld textarea, .fld select, input[type="text"] {
   width: 100%; font: inherit; font-size: 14px; color: var(--text);
-  background: var(--recess);
+  background-color: var(--recess);
   border: 1px solid var(--line); border-radius: 10px;
   padding: 11px 13px; resize: vertical;
   transition: border-color .14s var(--ease);
@@ -331,7 +331,7 @@ strong, b { font-weight: 650; }
 .fld textarea:focus, .fld select:focus, input[type="text"]:focus {
   outline: none; border-color: var(--accent);
 }
-.fld select { appearance: none; cursor: pointer; }
+.fld select { appearance: none; cursor: pointer; padding-right: 32px; }
 
 /* The Article 15 export, shown in full rather than summarised. */
 .dump {
@@ -354,7 +354,7 @@ strong, b { font-weight: 650; }
 .net {
   display: block; width: 100%;
   height: clamp(300px, 58vh, 560px);
-  height: clamp(300px, 58dvh, 560px);
+  height: clamp(300px, 58svh, 560px);
   /* One finger scrolls the page, two pinch and move the graph. A person is
      still dragged with one, because D3 sets touch-action: none on each
      node. */
@@ -500,7 +500,7 @@ strong, b { font-weight: 650; }
 }
 @keyframes sheet-up { from { transform: translateY(100%); } }
 
-html.no-scroll, body.no-scroll { overflow: hidden; }
+html.no-scroll { overflow: hidden; }
 
 /* -------------------------------------------------------------- layout --- */
 
@@ -891,6 +891,7 @@ select {
 
 .toast {
   position: fixed; left: 50%; bottom: calc(26px + env(safe-area-inset-bottom));
+  width: max-content; max-width: calc(100vw - 32px);
   transform: translateX(-50%) translateY(8px);
   background: var(--text); color: var(--surface);
   border-radius: 9px; padding: 11px 18px; font-size: 13.5px; font-weight: 600;
@@ -1024,7 +1025,8 @@ select {
 @media (pointer: coarse) {
   /* Keyed on the finger, not the width: an iPhone in landscape is wider than
      any phone breakpoint and still has fingers. */
-  .btn, .btn.sm, .segmented button { min-height: 44px; }
+  .btn, .btn.sm, .segmented button, .nav button, button.pill { min-height: 44px; }
+  .icon-btn { width: 44px; height: 44px; }
   input, textarea, select { font-size: 16px; }
   /* The field rules above set 14px with a class or a type in the selector,
      which outweighs a bare element, so the 16px is said again with the same

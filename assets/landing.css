@@ -14,7 +14,6 @@
 /* overflow-x is handled at the root in app.css, which every page loads
    before this one. */
 .lp { max-width: 100%; }
-.lp-foot { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 
 .lp-bar {
   display: flex; align-items: center; justify-content: space-between; gap: 20px;
@@ -291,7 +290,8 @@ a.wordmark { text-decoration: none; color: var(--text); }
 
 .lp-foot {
   max-width: 940px; margin: 0 auto;
-  padding: 44px 26px 64px;
+  padding: 44px max(26px, env(safe-area-inset-right)) calc(64px + env(safe-area-inset-bottom))
+    max(26px, env(safe-area-inset-left));
   border-top: 1px solid var(--line);
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 26px; flex-wrap: wrap;

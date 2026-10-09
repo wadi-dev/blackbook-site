@@ -111,7 +111,7 @@ BB.screens.home = function () {
     <div class="stack">
       <div class="card">
         <div class="card-head"><h2>Connections</h2></div>
-        ${ties.length ? ties.slice(0, 4).map(t => `
+        ${ties.length ? ties.map(t => `
           <button class="prow" data-member="${esc(t.id)}">
             ${tile(t, 34)}
             <span class="grow">

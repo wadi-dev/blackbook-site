@@ -80,7 +80,7 @@ BB.screens.introductions = function () {
         </div>
         ${note(`Both of you said yes and we approved it. The conversation is yours
           from here, on your own channels. These details are shown here for 30 days.`)}
-        <div style="margin-top:14px">${reportBlock({ id: c.member_id, first: splitName(c.name).first })}</div>`;
+        <div style="margin-top:14px">${reportBlock({ id: c.member_id, ...splitName(c.name) })}</div>`;
     } else if (i.state === "released") {
       /* Released, and the details taken away since: a block either way, or
          one of them has left. Which of those it was is nobody's business, so
@@ -133,7 +133,7 @@ BB.screens.introductions = function () {
 
     return `
     <div class="card">
-      <div class="spread">${head}<span class="state ${cls}">${esc(label)}</span></div>
+      <div class="spread" style="flex-wrap:wrap;row-gap:10px">${head}<span class="state ${cls}">${esc(label)}</span></div>
       ${body}
     </div>`;
   };
@@ -153,7 +153,7 @@ BB.screens.introductions = function () {
     <div class="stack" style="margin-bottom:34px">
       ${met.map(r => `
       <div class="card">
-        <div class="spread">
+        <div class="spread" style="flex-wrap:wrap;row-gap:10px">
           ${veiled(r.handle || [r.role_title, r.sector].filter(Boolean).join(", ") || "A member",
                    ["says you have met", r.city].filter(Boolean).join(" · "))}
           <span class="state">Connection</span>

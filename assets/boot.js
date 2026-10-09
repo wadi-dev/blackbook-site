@@ -59,27 +59,40 @@
 
   /* The Intros badge reads what the store holds and never waits for it, so
      me and introductions are asked for here, behind the first render. When
-     they land the chrome is drawn again, and its top bar wired as wire()
-     wires it. Not while the More sheet is open: a redraw would take the
-     focus out of its list, and the next render draws the badge anyway. */
-  const background = () => BB.store.need(["me", "introductions"]).then(() => {
-    if (BB.sheetOpen) return;
-    renderChrome();
-    document.querySelectorAll(".topbar [data-go]").forEach(b =>
-      b.addEventListener("click", () => go(b.dataset.go)));
-  }, () => {});
+     they land the chrome is drawn again, which wires its top bar. Not while
+     the More sheet is open: a redraw would take the focus out of its list,
+     and the next render draws the badge anyway.
+     Whether the seat is staff is asked again first: a probe at boot that
+     failed (offline, a server fault) is not an answer, and would otherwise
+     leave the Admin tab away until a reload. A member's answer is already
+     held, so for a member nothing more is sent. */
+  const background = () => BB.store.need(["me", "introductions"])
+    .then(() => BB.staff === true || !BB.auth ? null
+      : BB.auth.isStaff().then(ok => { if (ok) BB.staff = true; }))
+    .then(() => {
+      if (BB.sheetOpen) return;
+      renderChrome();
+    }, () => {});
 
   if (BB.auth) BB.auth.ready().then(() => { render(); landed(); background(); }, () => {});
   else { render(); landed(); background(); }
 
+  /* One field error from a 422, as a sentence. A field over its length is
+     the one a member reaches (nothing here stops a long ask or give), and
+     the validator's own words for it are a developer's, so it is said in
+     ours. Every other field error keeps the server's message. */
+  const fieldSaid = i => i && i.type === "string_too_long" && i.ctx
+    ? "That is too long. It can be at most " + i.ctx.max_length + " characters."
+    : i && i.msg;
+
   /* The server's sentence for a refused write. A 422 arrives as a list of
-     field errors, kept on serverDetail (api.js), and the first one's message
-     is the sentence. A 404 shows the caller's own sentence instead, because
-     404 bodies differ by route. */
+     field errors, kept on serverDetail (api.js), and the first one is the
+     sentence. A 404 shows the caller's own sentence instead, because 404
+     bodies differ by route. */
   const said = (err, missing) => {
     if (err && err.status === 404) return missing;
     const first = err && Array.isArray(err.serverDetail) && err.serverDetail[0];
-    return (first && first.msg) || (err && err.detail) || "Something went wrong.";
+    return (first && fieldSaid(first)) || (err && err.detail) || "Something went wrong.";
   };
 
   /* A list the server has just changed one row of: the row replaces the one
@@ -87,11 +100,13 @@
   const putRow = (list, row) => list.some(x => x.id === row.id)
     ? list.map(x => x.id === row.id ? row : x) : [...list, row];
 
-  /* Your ask: one open ask. Saving is a PATCH when one is open and a POST
-     when none is; closing is a PATCH to archived. Urgency is never sent. One
+  /* Your ask: one open ask. Saving reads the list from the server first,
+     then is a PATCH to the open ask it finds and a POST when none is open,
+     so a save whose answer was lost on the way back, or one made on another
+     device a moment before, is not posted as a second open ask. Closing is
+     a PATCH to archived, of the ask on screen. Urgency is never sent. One
      write at a time, so a double tap is one request, and the toast waits for
-     the server. The answer goes straight into the store's list, so the next
-     Save knows the ask is open even before the list is fetched again. On a
+     the server. The answer goes straight into the store's list. On a
      refusal the editor stays as it was, text and all. */
   function sendAsk(what) {
     const open = API.ask();
@@ -106,9 +121,14 @@
       if (!category) { toast("Choose which type it is."); return; }
       body = { title, category };
     }
-    const sent = BB.store.write("ask", () => open
+    const sent = BB.store.write("ask", () => what === "close"
       ? BB.api("/api/asks/" + encodeURIComponent(open.id), { method: "PATCH", body })
-      : BB.api("/api/asks", { method: "POST", body }),
+      : BB.api("/api/asks").then(list => {
+        const live = (list || []).filter(a => a.state === "open").pop();
+        return live
+          ? BB.api("/api/asks/" + encodeURIComponent(live.id), { method: "PATCH", body })
+          : BB.api("/api/asks", { method: "POST", body });
+      }),
       { update: { asks: putRow }, invalidate: ["asks"] });
     if (!sent) return;
     sent.then(() => {
@@ -253,8 +273,8 @@
       (err && Array.isArray(err.serverDetail) ? err.serverDetail : []).forEach(item => {
         const [, part, name] = (item && item.loc) || [];
         const key = part === "profile" ? name : (part === "ask" || part === "give") ? part + "_" + name : null;
-        if (key && key in ob.draft) refused[key] = refused[key] || item.msg;
-        else note = note || item.msg;
+        if (key && key in ob.draft) refused[key] = refused[key] || fieldSaid(item);
+        else note = note || fieldSaid(item);
       });
       onboardRefused(refused, note || (Object.keys(refused).length ? OB_CHECK
         : said(err, "That could not be saved. Try again in a moment.")));
@@ -620,9 +640,23 @@
          re-renders when it lands. */
       BB.state.inviteBusy = true; BB.state.inviteError = null; render();
       BB.api("/api/invitations", { method: "POST" })
-        .then(minted => { BB.state.invite = minted; })
-        .catch(err => { BB.state.inviteError = err && err.detail ? err.detail : "Could not create an invitation."; })
+        .then(minted => { BB.state.invite = minted; BB.store.invalidate("me"); })
+        .catch(err => {
+          BB.state.inviteError = err && err.status === 409 ? "You have no invitations left."
+            : (err && err.detail) || "Could not create an invitation.";
+        })
         .finally(() => { BB.state.inviteBusy = false; render(); });
+      return;
+    }
+
+    /* A code past its expiry is not sent anywhere. A page left open on
+       Network may not have been drawn again since it ran out, so the tap
+       is checked, and the card goes back to New invitation. */
+    if (BB.state.invite && !(Date.parse(BB.state.invite.expires_at) > Date.now())
+        && e.target.closest("[data-invite-wa], [data-invite-linkedin], [data-share-invite]")) {
+      BB.state.invite = null;
+      render();
+      toast("That code has expired. Make a new invitation.");
       return;
     }
 

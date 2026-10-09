@@ -44,7 +44,7 @@ function netGraph(net) {
   const said = n => {
     const by = n.degree === 1 ? "invited by you"
       : `invited by ${byId.has(n.via) ? byId.get(n.via).label : "someone you invited"}`;
-    return `${n.label}, ${by}${n.known ? "" : ", no name until you are connected"}. ${n.city}.`;
+    return `${n.label}, ${by}${n.known ? "" : ", no name until you are connected"}.${n.city ? ` ${n.city}.` : ""}`;
   };
 
   return `
@@ -65,17 +65,21 @@ function netGraph(net) {
 
 BB.screens.network = function () {
   const net = API.network();
+  /* A code past its expiry is not drawn as live; New invitation comes back. */
+  if (BB.state.invite && !(Date.parse(BB.state.invite.expires_at) > Date.now())) BB.state.invite = null;
   return `
   <div class="page-head"><div>
     <h1>Network</h1>
-    ${net && net.nodes.length ? `<p class="sub">The people you invited, and the people they
+    ${!net || net.nodes.length ? `<p class="sub">The people you invited, and the people they
       invited in turn. Those further out show without names until you are
       connected.</p>` : ""}
   </div></div>
 
   ${net ? netGraph(net) : `
-  <div class="card" data-wants="network">
-    <p class="admin-state muted" role="status">Loading</p>
+  <div class="card net-card">
+    <div class="net" data-wants="network" style="display:grid;place-items:center;cursor:default">
+      <p class="admin-state muted" role="status">Loading</p>
+    </div>
   </div>`}
 
   <div class="cols b" style="margin-top:var(--gap)">

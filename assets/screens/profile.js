@@ -12,7 +12,7 @@
    styled down. The founder seat reading a card gets the record and nothing
    to do on it. */
 
-const firstOf = m => m.first ? esc(m.first) : "";
+const firstOf = m => esc([m.first, m.last].filter(Boolean).join(" "));
 
 BB.screens._profile = function (m) {
   const peer = m.kind === "peer";
@@ -21,12 +21,13 @@ BB.screens._profile = function (m) {
   return `
   <div class="cols a" style="padding-top:26px">
     <div class="fade">
-      <div class="tile lg${peer ? " veiled" : ""}" data-hero style="width:100%;aspect-ratio:1;font-size:64px">${esc(m.initials)}</div>
+      <div class="tile lg${peer ? " veiled" : ""}" data-hero style="width:min(100%, 340px);aspect-ratio:1;font-size:64px">${esc(m.initials)}</div>
 
       <div style="margin-top:22px">
         <h1 class="display" style="font-size:29px">${peer ? esc(m.handle) : nameOf(m)}</h1>
         <p class="muted" style="font-size:14px;margin-top:7px;line-height:1.5">
-          ${peer ? esc(m.city) : `${esc(m.role)}<br>${[m.firm, m.city].filter(Boolean).map(esc).join(" · ")}`}
+          ${peer ? esc(m.city) : [esc(m.role), [m.firm, m.city].filter(Boolean).map(esc).join(" · ")]
+            .filter(Boolean).join("<br>")}
         </p>
       </div>
     </div>
@@ -43,7 +44,11 @@ BB.screens._profile = function (m) {
 /* Asking for an introduction, on a stranger's card only (D13): a connection
    already has your name and you theirs. core.js sends it and its Undo. */
 function requestCard(m) {
-  const asked = BB.state.requested && BB.state.requested[m.id];
+  /* Open until the list the store holds says it has ended. An id not in
+     the list yet (asked a moment ago, the list not read again) is open. */
+  const introId = BB.state.requested && BB.state.requested[m.id];
+  const row = introId && API.intros().find(i => i.id === introId);
+  const asked = introId && !(row && !INTRO_LIVE.includes(row.state));
   return `
   <div class="card">
     ${asked ? `
@@ -96,9 +101,10 @@ function connectBlock(m) {
    one person's word. That is worth saying rather than implying an
    investigation that cannot happen.
 
-   Also drawn on a released introduction, where `m` is { id, first } from its
-   contact. The API answers every report the same way, so "already reported"
-   is this page's memory, in BB.state for the session (boot.js). */
+   Also drawn on a released introduction, where `m` is { id, first, last }
+   from its contact. The API answers every report the same way, so
+   "already reported" is this page's memory, in BB.state for the session
+   (boot.js). */
 
 function reportBlock(m) {
   const done = BB.state.reported && BB.state.reported[m.id];
@@ -132,7 +138,7 @@ function reportBlock(m) {
     <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:16px">
       ${Object.keys(REPORT_REASONS).map(k => `
         <button class="pill${picked === k ? " solid" : " plain"}"
-          data-report="reason" data-v="${k}"
+          style="white-space:normal;text-align:left" data-report="reason" data-v="${k}"
           aria-pressed="${picked === k}">${esc(REPORT_REASONS[k])}</button>`).join("")}
     </div>
 
@@ -271,7 +277,7 @@ BB.screens.settings = function () {
           <div><div class="t">Invitations</div>
             <div class="d">Spend them on someone you would defend in a room you are not in.
               Your name stays attached. Inviting happens from your Network page.</div></div>
-          <span class="pill">${me.invitesLeft} left</span>
+          <span class="pill">${me.founder ? "No limit" : me.invitesLeft + " left"}</span>
         </div>
 
         <div class="set-row">
@@ -295,6 +301,8 @@ BB.screens.settings = function () {
         ${data ? `
           <pre class="dump">${esc(JSON.stringify(data.exported, null, 2))}</pre>
           <h3 style="font-weight:650;font-size:13.5px;margin-top:18px">Who has opened your record</h3>
+          ${data.audit.some(r => r.action === "view_member") ? ""
+            : '<p class="small muted" style="margin-top:6px">Nobody has opened it.</p>'}
           ${data.audit.length ? `
           <ul style="list-style:none;max-height:340px;overflow:auto">
             ${data.audit.map((r, i) => `
@@ -303,7 +311,7 @@ BB.screens.settings = function () {
               <span class="small muted tabular">${esc(opened.format(new Date(r.at)))}${
                 r.action === "view_member" && r.reason ? ` · Reason given: ${esc(r.reason)}` : ""}</span>
             </li>`).join("")}
-          </ul>` : '<p class="small muted" style="margin-top:6px">Nobody has opened it.</p>'}` : ""}
+          </ul>` : ""}` : ""}
       </div>
 
       <!-- The founder seat does not leave, and the API refuses it. -->

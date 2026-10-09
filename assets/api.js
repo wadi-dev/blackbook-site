@@ -99,9 +99,13 @@
       try {
         token = await root.auth.token();
       } catch (e) {
-        /* ready() rejected: Clerk did not load, or the instance was refused.
-           Callers catch ApiError and nothing else, so the cause is wrapped. */
-        throw new ApiError(0, e && e.message ? e.message : "Sign-in is not available.", { cause: e });
+        /* The token could not be had: ready() rejected, or the SDK could not
+           reach its own servers. Its message is for us (it names hosts and
+           can carry the session id), so it goes to the console, and the
+           member reads the connection sentence. Callers catch ApiError and
+           nothing else, so the cause is wrapped. */
+        console.error("BB.api token:", e);
+        throw new ApiError(0, FALLBACK[0], { cause: e });
       }
       if (!token) return signedOut();
       headers.set("Authorization", "Bearer " + token);
@@ -114,13 +118,20 @@
       if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
     }
 
+    /* A read that hangs is given up after 20 seconds, so Loading turns into
+       Try again rather than staying up. Reads only: a write the server has
+       already taken would be lost to the page if it were cut off. Where the
+       browser has no AbortSignal.timeout (Safari before 16), nothing is cut
+       off, as before. */
+    const method = opts.method || (payload === undefined ? "GET" : "POST");
     let res;
     try {
       res = await fetch(url, {
-        method: opts.method || (payload === undefined ? "GET" : "POST"),
+        method,
         headers,
         body: payload,
-        signal: opts.signal,
+        signal: opts.signal || (method === "GET" && typeof AbortSignal.timeout === "function"
+          ? AbortSignal.timeout(20000) : undefined),
         cache: "no-store",
         /* Bearer, not cookies, so nothing credentialed crosses origins. A
            redirect is refused outright: the API never issues one, and a
@@ -133,7 +144,15 @@
       throw new ApiError(0, FALLBACK[0], { cause: e });
     }
 
-    if (res.ok) return body(res);
+    /* Every success but a 204 carries a JSON body. One that does not (cut
+       off on the way, or not JSON at all) is a failure, not an empty answer
+       a screen would draw from. */
+    if (res.ok) {
+      if (res.status === 204) return null;
+      const data = await body(res);
+      if (data === null) throw new ApiError(res.status, "Something went wrong.");
+      return data;
+    }
 
     const data = await body(res);
     const detail = detailOf(data, res.status);

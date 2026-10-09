@@ -306,8 +306,9 @@ const API = {
   tieRequests: () => BB.store.peek("tieRequests") || [],
 
   /* One member's card, as GET /api/members/{id} answered it. The store keeps
-     it for the page session, and openMember (core.js) waits for it before
-     anything draws. Told apart by its fields:
+     a staff seat's read of it for the page session, a member's is read again
+     on each opening (core.js), and openMember waits for it before anything
+     draws. Told apart by its fields:
        - "peer", a stranger (PeerView): a handle, which is their role and
          sector, their city, and no name. `tie` is "none", or "pending"
          whichever of the two asked, and nothing may say which;

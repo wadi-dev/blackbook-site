@@ -51,6 +51,8 @@
   const SENT_WITH = { terms_version: "accept", privacy_version: "accept" };
 
   const UNREACHABLE = "The door could not be reached. Please try again in a moment.";
+  // Said when the API answered, but with a fault rather than a refusal.
+  const FAULT       = "Something went wrong on our side. Please try again in a moment.";
   const REFUSED     = "That invitation is not valid.";
   const TOO_MANY    = "Too many requests. Try again shortly.";
   const WAIT_SECONDS = 60;
@@ -276,7 +278,7 @@
     if (res.status === 400) return { kind: "refused", text: sentence(await readJson(res), REFUSED) };
     if (res.status === 429) return { kind: "too_many", text: sentence(await readJson(res), TOO_MANY) };
     if (res.status === 422) return { kind: "invalid", names: invalidFields(await readJson(res)) };
-    return { kind: "unreachable" };
+    return { kind: "fault" };
   };
 
   const submit = async () => {
@@ -332,6 +334,9 @@
           ? `Please check your ${list(result.names)}.`
           : "Please check the form: one of the fields was not accepted.",
           result.names);
+        break;
+      case "fault":
+        fail(FAULT);
         break;
       default:
         fail(UNREACHABLE);

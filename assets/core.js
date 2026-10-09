@@ -162,6 +162,10 @@ function renderChrome() {
         aria-current="${BB.state.screen === "search"}">${svg(ICON.search)}</button>`}
       <button class="icon-btn" data-go="settings" title="Settings" aria-label="Settings">${svg(ICON.cog)}</button>
     </div>`;
+  /* Wired here, where the bar is drawn, and nowhere else: render() returns
+     early while a screen loads or fails, and wire() is not reached then. */
+  document.querySelectorAll(".topbar [data-go]").forEach(b =>
+    b.addEventListener("click", () => go(b.dataset.go)));
 
   const sheet = withAdmin(SHEET);
   const onSheet = sheet.some(([k]) => k === BB.state.screen);
@@ -210,11 +214,12 @@ function setSheet(open) {
   const s = document.getElementById("sheet");
   s.classList.toggle("open", open);
   s.hidden = !open;
-  /* On the root as well as the body: html carries overflow-x: clip, and an
+  /* On the root and not the body: html carries overflow-x: clip, and an
      html whose overflow is not visible stops passing the body's overflow
-     to the viewport, so a lock on body alone no longer holds the page. */
+     to the viewport, so a lock on body would not hold the page. It would
+     make body a scroll container of its own instead, and the sticky top
+     bar would stick inside that and leave the screen. */
   document.documentElement.classList.toggle("no-scroll", open);
-  document.body.classList.toggle("no-scroll", open);
   /* The tab bar holds the More button itself, so it is inerted after focus has
      already moved into the sheet. */
   setBehindInert(open);
@@ -237,7 +242,7 @@ function go(screen) {
   const open = document.getElementById("detail");
   if (open) {
     open.remove();
-    document.body.style.overflow = "";
+    document.documentElement.classList.remove("no-scroll");
     document.removeEventListener("keydown", escClose);
     setBehindInert(false);
     focusReturn = null;          /* going elsewhere, so do not restore */
@@ -320,12 +325,21 @@ function render() {
       return;
     }
   }
-  const html = `<div class="shell">${fn()}</div>`;
-  if (!keepPart(host, html, fn.keep)) {
-    host.innerHTML = html;
-    wire(host);
+  /* A screen that throws gets the error box with Try again, not a Loading
+     line that never ends, and render() itself never throws, so the chrome
+     and every other screen keep working. */
+  try {
+    const html = `<div class="shell">${fn()}</div>`;
+    if (!keepPart(host, html, fn.keep)) {
+      host.innerHTML = html;
+      wire(host);
+    }
+    if (fn.mount) fn.mount(host);
+  } catch (e) {
+    console.error("BB.render:", e);
+    host.innerHTML = `<div class="shell">${cannotLoad()}</div>`;
+    return;
   }
-  if (fn.mount) fn.mount(host);
   if (fn.wants) {
     const missing = fn.wants.some(k => BB.store.peek(k) === undefined);
     BB.store.need(fn.wants).then(() => { if (missing && seq === renders) render(); }, err => {
@@ -389,8 +403,6 @@ const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").match
 /* Delegated wiring, re-applied after every render. */
 function wire(root) {
   root.querySelectorAll("[data-go]").forEach(b =>
-    b.addEventListener("click", () => go(b.dataset.go)));
-  document.querySelectorAll(".topbar [data-go]").forEach(b =>
     b.addEventListener("click", () => go(b.dataset.go)));
   root.querySelectorAll("[data-member]").forEach(b =>
     b.addEventListener("click", e => {
@@ -465,18 +477,23 @@ function undoIntro(memberId) {
    scroll lock already released and Back doing nothing. */
 BB.trail = [];
 
-/* A card is read from the API once per page session (BB.store.member):
-   every staff read of a card is a look recorded on that member's own trail,
-   and the founder seat's reads give this reason, which the member reads
-   beside the look. A 404 is every card a member may not have, blocked,
-   departed or never there, so it gets one fixed sentence. */
+/* A staff seat reads a card from the API once per page session
+   (BB.store.member): every staff read of a card is a look recorded on that
+   member's own trail, and the founder seat's reads give this reason, which
+   the member reads beside the look. A member's read writes no look, so a
+   member's card is read again on each opening, and a tie confirmed or an
+   introduction released elsewhere shows the next time it is opened. A 404
+   is every card a member may not have, blocked, departed or never there,
+   so it gets one fixed sentence. */
 const CARD_REASON = "member card";
 const staffSeat = () => {
   const me = BB.store.peek("me");
   return BB.staff === true || !!(me && me.role);
 };
-const loadCard = id => BB.store.member(id, staffSeat() ? CARD_REASON : undefined)
-  .then(() => API.member(id));
+const loadCard = id => {
+  if (!staffSeat()) BB.store.invalidate("member:" + id);
+  return BB.store.member(id, staffSeat() ? CARD_REASON : undefined).then(() => API.member(id));
+};
 const cardRefused = err => toast(err && err.status === 404
   ? "That card is not available." : (err && err.detail) || "Could not load the card.");
 
@@ -584,14 +601,19 @@ function showMember(id, m, srcTile) {
     : [fullName(m), m.role].filter(Boolean).join(", "));
   wrap.innerHTML = detailBody(m);
   document.body.appendChild(wrap);
-  document.body.style.overflow = "hidden";
+  document.documentElement.classList.add("no-scroll");
   setBehindInert(true);
 
   const target = wrap.querySelector("[data-hero]");
   const fades = wrap.querySelectorAll(".fade");
 
   if (src && target && !reducedMotion()) {
+    /* The flight lands where the hero ends up and at its type size: the
+       hero is measured while its .fade still holds it lower by its lift,
+       which comes off as the fade runs. */
     const dst = target.getBoundingClientRect();
+    const heroFont = getComputedStyle(target).fontSize;
+    const lift = new DOMMatrixReadOnly(getComputedStyle(target.closest(".fade")).transform).m42;
     const clone = el("div", "flip", esc(m.initials));
     clone.style.cssText =
       `left:${src.left}px;top:${src.top}px;width:${src.width}px;height:${src.height}px;` +
@@ -602,11 +624,11 @@ function showMember(id, m, srcTile) {
     requestAnimationFrame(() => {
       clone.style.transition = "all .56s var(--ease)";
       clone.style.left = dst.left + "px";
-      clone.style.top = dst.top + "px";
+      clone.style.top = (dst.top - lift) + "px";
       clone.style.width = dst.width + "px";
       clone.style.height = dst.height + "px";
       clone.style.borderRadius = "20px";
-      clone.style.fontSize = Math.max(11, dst.width * 0.30) + "px";
+      clone.style.fontSize = heroFont;
       fades.forEach(f => f.classList.add("in"));
     });
     setTimeout(() => { target.style.opacity = ""; clone.remove(); }, 580);
@@ -637,11 +659,12 @@ function closeMember(srcTile) {
   document.removeEventListener("keydown", escClose);
   BB.trail = [];
   const target = wrap.querySelector("[data-hero]");
-  const src = srcTile ? srcTile.getBoundingClientRect() : null;
+  /* A redraw behind the overlay may have taken the tile out of the page. */
+  const src = srcTile && document.contains(srcTile) ? srcTile.getBoundingClientRect() : null;
 
   const finish = () => {
     wrap.remove();
-    document.body.style.overflow = "";
+    document.documentElement.classList.remove("no-scroll");
     BB.state.detail = null;
     setBehindInert(false);
     restoreFocus();
@@ -653,8 +676,12 @@ function closeMember(srcTile) {
     const clone = el("div", "flip", esc(m ? m.initials : ""));
     clone.style.cssText =
       `left:${dst.left}px;top:${dst.top}px;width:${dst.width}px;height:${dst.height}px;` +
-      `border-radius:20px;font-size:${Math.max(11, dst.width * 0.30)}px;`;
+      `border-radius:20px;font-size:${getComputedStyle(target).fontSize};`;
     document.body.appendChild(clone);
+    /* Read once here so the clone has a starting style to move from. With
+       nothing read between this and the next frame, it took the end values
+       at once and sat on the tile while the card faded. */
+    clone.getBoundingClientRect();
     wrap.style.transition = "opacity .3s var(--ease)";
     wrap.style.opacity = "0";
     requestAnimationFrame(() => {

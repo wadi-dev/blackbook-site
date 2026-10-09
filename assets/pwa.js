@@ -195,8 +195,15 @@
     bar.appendChild(actions);
 
     /* In document flow at the top of the body, above the sticky topbar, so
-       it scrolls away with the page and never overlaps the tab bar. */
+       it scrolls away with the page and never overlaps the tab bar. On a
+       screen already drawn, the page is scrolled by the bar's height, so
+       nothing the member is reading or reaching for moves; the bar waits
+       above, where scrolling up finds it. Where the browser's own scroll
+       anchoring has already done this, the difference is nothing. */
+    var scr = document.getElementById("screen");
+    var top0 = scr ? scr.getBoundingClientRect().top : 0;
     document.body.insertBefore(bar, document.body.firstChild);
+    if (scr && scr.childElementCount) window.scrollBy(0, scr.getBoundingClientRect().top - top0);
   }
 
   function removeBar() {
