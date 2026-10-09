@@ -218,7 +218,7 @@ h3 { font-size: 15.5px; font-weight: 650; letter-spacing: -0.012em; }
    anybody having to remember. Two earlier attempts enumerated first elements
    and then containers, and each missed somewhere: a bare span in achievements,
    then the role line in the page head. */
-.shell, .detail, .lp-doc, .lp-list {
+.shell, .detail, .lp-doc {
   overflow-wrap: anywhere;
 }
 /* The rows that truncate keep truncating: white-space: nowrap wins over
@@ -242,6 +242,19 @@ strong, b { font-weight: 650; }
   padding: 14px 24px;
   padding-left: max(24px, env(safe-area-inset-left));
   padding-right: max(24px, env(safe-area-inset-right));
+}
+/* As tall with the wordmark alone as with the nav. Until /api/me has
+   answered the bar holds the wordmark and nothing else (renderChrome), and
+   the nav drawn once it has is 17px taller, which moved the whole screen
+   under it: the one layout shift the app had (9 October 2026). The height
+   is the nav button's, its two 8px paddings round a 13.5px line at 1.55,
+   plus the bar's own 14px each way, and 44px for the button where a finger
+   is the pointer. Not on a phone, where the nav is never drawn. */
+@media (min-width: 861px) {
+  .topbar-inner { min-height: calc(28px + 16px + 13.5px * 1.55); }
+}
+@media (min-width: 861px) and (pointer: coarse) {
+  .topbar-inner { min-height: calc(28px + 44px); }
 }
 /* The geographic tag beside the name: the same text, same colour, same
    spacing, at half the size, one space to the right on the same line. It is
@@ -528,7 +541,6 @@ html.no-scroll { overflow: hidden; }
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .spread { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .grow { flex: 1; min-width: 0; }
-.rule { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
 
 /* --------------------------------------------------------------- cards --- */
 
@@ -624,12 +636,6 @@ html.no-scroll { overflow: hidden; }
 
 /* -------------------------------------------------------------- inputs --- */
 
-.field { display: block; margin-bottom: 16px; }
-.field > span {
-  display: block; margin-bottom: 7px;
-  font-size: 10.5px; font-weight: 500;
-  letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
-}
 input[type=text], input[type=email], input[type=search], select, textarea {
   width: 100%;
   background: var(--surface); color: var(--text);
@@ -766,15 +772,6 @@ select {
   .prow.opener .opens .what {
     max-width: none; white-space: normal; overflow: visible; line-height: 1.4;
   }
-
-  /* The 1–7 ramp needs ~330px, which leaves nothing for the name, it collapsed
-     to "P." / "S.". So it takes its own line and spreads across it, and you can
-     still see whose strength you are setting. */
-  .prow.editing { flex-wrap: wrap; row-gap: 10px; }
-  .prow.editing .ramp {
-    width: 100%; padding-left: 49px; /* tile 36 + row gap 13 */
-    justify-content: space-between;
-  }
 }
 
 /* ---------------------------------------------------------- stat rail --- */
@@ -822,31 +819,6 @@ select {
 .meter .bar i { display: block; height: 100%; background: var(--accent); }
 .meter .val { width: 26px; text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
 
-/* ------------------------------------------------------------ carousel -- */
-
-.carousel {
-  display: flex; gap: 14px; overflow-x: auto;
-  scroll-snap-type: x mandatory; padding-bottom: 12px;
-  scrollbar-width: none;
-}
-.carousel::-webkit-scrollbar { display: none; }
-.carousel .c {
-  scroll-snap-align: start; width: 104px; flex: 0 0 auto; text-align: left;
-}
-.carousel .c .tile { width: 104px; height: 104px; font-size: 25px; margin-bottom: 9px; }
-.carousel .c:hover .tile { border-color: var(--accent); }
-.carousel .c .cn {
-  display: block; font-size: 11.5px; font-weight: 600; line-height: 1.3;
-}
-.carousel .c .cf {
-  display: block; font-size: 10.5px; color: var(--muted);
-  margin: 2px 0 5px; line-height: 1.3;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-/* Names wrap here rather than truncate, a 104px tile is too narrow to
-   truncate a name without losing the surname entirely. The inline bracket
-   variant keeps the founder mark flowing correctly across two lines. */
-
 /* ------------------------------------------------------------- detail --- */
 /* The one signature motion: a member's tile flies into their profile.
    Everything else in the system is instant. */
@@ -874,6 +846,9 @@ select {
   border: 1px solid var(--line); background: var(--recess);
   display: grid; place-items: center;
   font-family: var(--font-display); font-weight: 650; color: var(--text);
+  /* Laid out where it lands and flown by a transform from its top left
+     (core.js, showMember), so the flight never lays it out again. */
+  transform-origin: 0 0;
 }
 .fade { opacity: 0; transform: translateY(12px); }
 .fade.in {
@@ -923,11 +898,6 @@ select {
 .state.done { background: var(--accent); color: var(--surface); }
 .state.wait { border-color: var(--line); color: var(--muted); }
 
-.bubbles { display: flex; flex-direction: column; gap: 8px; }
-.bubble { max-width: 76%; padding: 10px 14px; border-radius: 15px; font-size: 14px; line-height: 1.45; }
-.bubble.theirs { background: var(--recess); align-self: flex-start; border-bottom-left-radius: 4px; }
-.bubble.mine { background: var(--accent); color: var(--surface); align-self: flex-end; border-bottom-right-radius: 4px; }
-
 .set-row {
   display: flex; align-items: center; justify-content: space-between;
   gap: 18px; padding: 15px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap;
@@ -935,10 +905,6 @@ select {
 .set-row:last-child { border-bottom: 0; }
 .set-row .t { font-weight: 650; font-size: 14px; }
 .set-row .d { font-size: 12.5px; color: var(--muted); max-width: 46ch; margin-top: 2px; }
-
-.scroll-y { max-height: 460px; overflow-y: auto; scrollbar-width: thin; }
-.scroll-y::-webkit-scrollbar { width: 6px; }
-.scroll-y::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
 
 /* --------------------------------------------------------------- admin --- */
 /* The broker's desk. The same three moves as everywhere else: hairline cards,

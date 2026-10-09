@@ -28,7 +28,7 @@ const el = (tag, cls, html) => {
    placeholder that had not been filled in yet. The pill borrows the one state
    the design system already has, inversion, and leaves the name alone.
 
-   Inline rows (carousels, lists, tie rows) drop the pill entirely rather than
+   Inline rows (lists, tie rows) drop the pill entirely rather than
    shrinking it: at that size it turns into an unreadable black blob, and a
    mark of office repeated on every row of every list stops being a mark of
    anything. The full treatment lives where the full name does, on Home and on
@@ -50,14 +50,6 @@ const tile = (m, size, extra) => {
     `style="width:${size}px;height:${size}px;font-size:${Math.max(11, Math.round(size * 0.30))}px">` +
     `${esc(m.initials)}</div>`;
 };
-
-/* Resolve the strength ramp against the theme actually in effect. Since
-   daylight.js resolves Auto to light or dark on the root before anything
-   paints, the attribute is the truth and the media query no longer is. */
-function ramp(n) {
-  const dark = document.documentElement.dataset.theme === "dark";
-  return (dark ? DB.rampDark : DB.ramp)[n] || "#E8E8E8";
-}
 
 let toastTimer;
 function toast(msg) {
@@ -304,6 +296,15 @@ function render() {
   if (me === undefined) {
     renderChrome();
     host.innerHTML = `<div class="shell"><p class="admin-state muted" role="status">Loading</p></div>`;
+    /* The keys the screen asked for set off now, beside /api/me, rather
+       than once it has answered: the gate waits for me alone, and the
+       render it opens on finds them in flight or landed, one round trip
+       sooner (9 October 2026). A failure here is left to that render,
+       which asks for the key again and shows the error box if it fails
+       again. A member still to be onboarded fetches a few keys the
+       onboarding screen does not draw from, once. */
+    const asked = BB.screens[BB.state.screen] || BB.screens.home;
+    BB.store.need([].concat(asked.needs || [], asked.wants || [])).catch(() => {});
     BB.store.need(["me"]).then(() => { if (seq === renders) render(); }, err => {
       if (seq !== renders) return;
       host.innerHTML = `<div class="shell">${cannotLoad(err)}</div>`;
@@ -464,7 +465,60 @@ function undoIntro(memberId) {
 /* The one signature motion in the system: the tile the member clicked flies
    into the profile, interpolating position, size, radius and type size at
    once, so the card *is* the profile opened rather than a new page loading.
-   Everything else in Blackbook London is instant. */
+   Everything else in Blackbook London is instant.
+
+   The flight is a transform (9 October 2026). The clone is laid out once,
+   at the size and place it lands, and is moved and scaled from the tile's
+   by a transform, which the compositor runs without the page's thread: it
+   used to animate left, top, width, height and font-size, a layout and a
+   paint of the clone on every frame of the flight. The corners and the
+   initials fly with it as keyframes on the same clock: a radius in pixels
+   on the clone and a scale on the span that holds the initials, each
+   divided by the scale the box is at on that frame, so the corners read as
+   the tile's 12px over the tile and the hero's 20px over the hero, and the
+   initials at the tile's type size and then the hero's, on the straight
+   curve they always took. Neither lays the clone out: the radius is paint,
+   the span's scale is composite. A transition on either would not do, since
+   the product of two eased values is not the eased value: a radius in
+   pixels under a growing scale balloons mid-flight, and the initials read a
+   quarter large. */
+
+/* The flight for the tile at `at` and the clone laid out at `box`, as
+   keyframes for the clone's transform and corner radius and for the span's
+   transform, from the tile to the box, or from the box to the tile with
+   `toTile`. `s` is the box's scale on each frame, the tile's size over the
+   box's at the tile and 1 at the box; the radius and the span's scale are
+   what should show divided by it. Forty steps keep the straight curve
+   within one per cent where it bends most, on the first frames, where `s`
+   is smallest and changes fastest. */
+const FLIGHT_STEPS = 40;
+const flightFrames = (at, box, boxFont, tileFont, toTile) => {
+  const s0 = at.width / box.width, r0 = at.width >= 80 ? 20 : 12;
+  const outer = [], radius = [], inner = [];
+  for (let k = 0; k <= FLIGHT_STEPS; k++) {
+    const t = toTile ? 1 - k / FLIGHT_STEPS : k / FLIGHT_STEPS;
+    const s = s0 + (1 - s0) * t;
+    outer.push({ transform: `translate(${(at.left - box.left) * (1 - t)}px, `
+      + `${(at.top - box.top) * (1 - t)}px) scale(${s})` });
+    radius.push({ borderRadius: `${(r0 + (20 - r0) * t) / s}px` });
+    inner.push({ transform: `scale(${(tileFont + (boxFont - tileFont) * t) / (boxFont * s)})` });
+  }
+  return { outer, radius, inner };
+};
+const tileFontOf = rect => Math.max(11, rect.width * 0.30);
+
+/* Fly the clone: three animations on one clock, with the system's easing.
+   They start on the next frame, so nothing has to be read back first to
+   give them a style to move from. */
+let flightEase;
+const fly = (clone, frames, duration) => {
+  flightEase = flightEase
+    || getComputedStyle(document.documentElement).getPropertyValue("--ease").trim();
+  const timing = { duration, easing: flightEase, fill: "forwards" };
+  clone.animate(frames.outer, timing);
+  clone.animate(frames.radius, timing);
+  clone.firstChild.animate(frames.inner, timing);
+};
 
 /* The trail of profiles opened without leaving the overlay. A card no longer
    links to another, so today it is one deep, but anything that opens a card
@@ -614,23 +668,16 @@ function showMember(id, m, srcTile) {
     const dst = target.getBoundingClientRect();
     const heroFont = getComputedStyle(target).fontSize;
     const lift = new DOMMatrixReadOnly(getComputedStyle(target.closest(".fade")).transform).m42;
-    const clone = el("div", "flip", esc(m.initials));
+    const box = { left: dst.left, top: dst.top - lift, width: dst.width, height: dst.height };
+    const clone = el("div", "flip", `<span>${esc(m.initials)}</span>`);
     clone.style.cssText =
-      `left:${src.left}px;top:${src.top}px;width:${src.width}px;height:${src.height}px;` +
-      `border-radius:${src.width >= 80 ? 20 : 12}px;font-size:${Math.max(11, src.width * 0.30)}px;`;
+      `left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;` +
+      `border-radius:20px;font-size:${heroFont};`;
     document.body.appendChild(clone);
+    fly(clone, flightFrames(src, box, parseFloat(heroFont), tileFontOf(src), false), 560);
     target.style.opacity = "0";
 
-    requestAnimationFrame(() => {
-      clone.style.transition = "all .56s var(--ease)";
-      clone.style.left = dst.left + "px";
-      clone.style.top = (dst.top - lift) + "px";
-      clone.style.width = dst.width + "px";
-      clone.style.height = dst.height + "px";
-      clone.style.borderRadius = "20px";
-      clone.style.fontSize = heroFont;
-      fades.forEach(f => f.classList.add("in"));
-    });
+    requestAnimationFrame(() => { fades.forEach(f => f.classList.add("in")); });
     setTimeout(() => { target.style.opacity = ""; clone.remove(); }, 580);
   } else {
     fades.forEach(f => f.classList.add("in"));
@@ -672,27 +719,16 @@ function closeMember(srcTile) {
 
   if (src && target && !reducedMotion()) {
     const dst = target.getBoundingClientRect();
+    const heroFont = getComputedStyle(target).fontSize;
     const m = API.member(BB.state.detail);
-    const clone = el("div", "flip", esc(m ? m.initials : ""));
+    const clone = el("div", "flip", `<span>${esc(m ? m.initials : "")}</span>`);
     clone.style.cssText =
       `left:${dst.left}px;top:${dst.top}px;width:${dst.width}px;height:${dst.height}px;` +
-      `border-radius:20px;font-size:${getComputedStyle(target).fontSize};`;
+      `border-radius:20px;font-size:${heroFont};`;
     document.body.appendChild(clone);
-    /* Read once here so the clone has a starting style to move from. With
-       nothing read between this and the next frame, it took the end values
-       at once and sat on the tile while the card faded. */
-    clone.getBoundingClientRect();
     wrap.style.transition = "opacity .3s var(--ease)";
     wrap.style.opacity = "0";
-    requestAnimationFrame(() => {
-      clone.style.transition = "all .46s var(--ease)";
-      clone.style.left = src.left + "px";
-      clone.style.top = src.top + "px";
-      clone.style.width = src.width + "px";
-      clone.style.height = src.height + "px";
-      clone.style.borderRadius = (src.width >= 80 ? 20 : 12) + "px";
-      clone.style.fontSize = Math.max(11, src.width * 0.30) + "px";
-    });
+    fly(clone, flightFrames(src, dst, parseFloat(heroFont), tileFontOf(src), true), 460);
     setTimeout(() => { clone.remove(); finish(); }, 470);
   } else {
     finish();

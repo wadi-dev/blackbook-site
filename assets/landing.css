@@ -59,25 +59,6 @@
 .lp-prose p { font-size: 17px; line-height: 1.6; }
 .lp-prose p + p { margin-top: 17px; }
 
-.lp-note {
-  max-width: 62ch; margin-bottom: 24px;
-  font-size: 14px; line-height: 1.6; color: var(--muted);
-}
-
-/* Hairlines divide, not boxes. */
-.lp-list { list-style: none; max-width: 74ch; }
-.lp-list li {
-  padding: 20px 0;
-  border-top: 1px solid var(--line);
-  font-size: 15px; line-height: 1.6; color: var(--muted);
-}
-.lp-list li:last-child { border-bottom: 1px solid var(--line); }
-.lp-list b {
-  display: block; margin-bottom: 5px;
-  font-size: 16px; font-weight: 650; color: var(--text);
-}
-.lp-list.tight li { padding: 16px 0; }
-
 /* ---------------------------------------------------------------- entry --- */
 
 .lp-actions {
@@ -232,6 +213,14 @@ a.wordmark { text-decoration: none; color: var(--text); }
 .lp-centre .lp-bar, .lp-centre .lp-foot { width: 100%; }
 .lp-centre main .lp-rule { width: 100%; }
 .lp-centre #signin { width: 100%; display: flex; justify-content: center; }
+/* As tall as the card Clerk mounts into it, before it has (9 October 2026).
+   Measured on the live page: the email step's card is 286px at 375px and at
+   1280px alike, since none of its rows wrap. Until it mounted the page
+   centred an empty box and moved the heading, the lead and the footer by
+   half the card's height when it arrived. The floor holds everything where
+   it ends up; a card a pixel taller on another platform's fonts moves the
+   page by half a pixel, under what counts as a shift. */
+.lp-centre #signin { min-height: 286px; }
 
 /* The one form on the public side. Rules scoped to .lp-enter so the app's
    form tokens in app.css are inherited, not copied. */

@@ -20,7 +20,7 @@ const DB = {};
 DB.members = [
   /* The founder. The only real person, and the only record, shown under the
      trading name. Everything not written in the product is absent rather than
-     invented: no ask until the founder writes one, no achievements. */
+     invented: no ask until the founder writes one. */
   { id: "founder", first: "Blackbook", last: "London", initials: "BL",
     role: "Founder", firm: "Blackbook London", city: "London",
     sector: "Corporate Leadership", sub: "Founder",
@@ -32,24 +32,20 @@ DB.members = [
         type: "door", confidence: 5 },
       { text: "How to get a UK data-protection position right before launch rather than after",
         type: "judgment", confidence: 5 }
-    ],
-    achievements: [] }
+    ] }
 ];
 
 DB.me = "founder";
 
 /* ------------------------------------------------------------- the graph -- */
-/* Declared strength, 1–7. Held privately: never shown to the person rated. */
+/* Declared strength, 1–7. Held privately: never shown to the person rated.
+   Read by the Search screen's mock alone (API.search), to show a result the
+   member already knows openly. */
 
 DB.ties = [
   /* Empty until the first real member joins. Nobody starts at zero: the
      referrer becomes the first connection at joining. */
 ];
-
-/* Ties between other members, which is what makes a second degree exist.
-   Deliberately holds no strength: how close THEY say they are is their own
-   record, and you are never shown it. All you get is that a route exists. */
-DB.memberTies = [];
 
 /* Members who have blocked visibility to this member's firm. Held as seats
    only, the searcher must never be able to work out who they are, so no
@@ -66,23 +62,6 @@ DB.blocked = [];
    Resolved by not holding it. The member's own contacts stay on the member's own
    phone. We learn a name at the moment an introduction is agreed and both sides
    have accepted, and not before. See ../../blackbook/r1-options.md. */
-
-/* The close circle: MUTUAL, unlike the vouch scale, which stays one-sided and
-   private forever.
-
-   The two are deliberately decoupled. A vouch is your own honest record and
-   never triggers anything, or members would inflate their sevens to open
-   doors and the whole graph would rot into flattery. Entering each other's
-   private profiles is a separate, deliberate act: one member extends an
-   invitation, the other accepts or silently declines. Only the invitation
-   travels, never the number, so the only signal another member can ever
-   receive is a compliment. */
-DB.circle = [];
-
-/* Circle invitations this member has sent. Held so the UI can say "invited"
-   instead of offering the button twice. Never shown to the other side as
-   anything but the single invitation itself. */
-DB.circleOut = [];
 
 /* Asks this member has passed one hop into their own network. */
 DB.passed = {};
@@ -186,13 +165,6 @@ DB.subsectors = {
     "Publishing & Press", "Luxury & Fashion"]
 };
 
-/* Strength ramp: weight of black, never hue. Ordinal data on an ordinal
-   channel, it survives colour blindness, greyscale and a screenshot. */
-DB.ramp = { 7: "#0A0A0A", 6: "#333333", 5: "#555555", 4: "#777777",
-            3: "#999999", 2: "#B5B5B5", 1: "#CFCFCF" };
-DB.rampDark = { 7: "#FFFFFF", 6: "#D6D6D6", 5: "#AFAFAF", 4: "#8A8A8A",
-                3: "#6A6A6A", 2: "#4E4E4E", 1: "#3A3A3A" };
-
 /* ------------------------------------------------------------------ API --- */
 /* Mirrors the shape a real endpoint would return. Swap the bodies for fetch()
    and nothing above this line changes. */
@@ -266,9 +238,7 @@ const API = {
   /* The two closed lists, values and the words beside them, as served. */
   categories: () => BB.store.peek("categories"),
 
-  /* Confirmed ties, as ConnectionView: name, role and firm, and no strength.
-     ties() below stays the mock for the Network screen until vouches are
-     connected. */
+  /* Confirmed ties, as ConnectionView: name, role and firm, and no strength. */
   connections: () => (BB.store.peek("ties") || []).map(c => ({
     id: c.id, ...splitName(c.name),
     role: c.role_title, firm: c.firm, city: c.city, sector: c.sector
@@ -334,10 +304,10 @@ const API = {
      neither does Settings. */
   blocks: () => BB.store.peek("blocks") || [],
 
-  /* ---- Mock ------------------------------------------------------------ */
+  /* ---- Mock, read by the Members, Search and Asks screens until each is
+     connected (HIDDEN in core.js). ---------------------------------------- */
 
   members:   () => DB.members.filter(m => m.id !== DB.me),
-  ties:      () => DB.ties.map(t => ({ ...t, member: API.member(t.id) })),
 
   /* Asks from other members, with whether the viewer can actually give it. */
   asks() {
@@ -349,40 +319,8 @@ const API = {
       .sort((a, b) => (b.canHelp - a.canHelp) || (a.member.askAge - b.member.askAge));
   },
 
-  /* People your connections can reach who you cannot reach yourself.
-
-     Returned VEILED, on purpose. You get the seat, the sector, the city and who
-     the route runs through. You do not get the name, and you do not get how
-     close the two of them say they are, because that is their private record
-     exactly as yours is. The name is released when both sides accept, and not
-     before. This is the same rule search follows.
-
-     minStrength defaults to 5 because a route is only worth showing if the
-     person carrying it would actually make the call. */
-  secondDegree(minStrength = 5) {
-    const mine = new Set(DB.ties.map(t => t.id));
-    const close = new Set(DB.ties.filter(t => t.strength >= minStrength).map(t => t.id));
-    const found = new Map();
-
-    DB.memberTies.forEach(({ a, b }) => {
-      [[a, b], [b, a]].forEach(([via, far]) => {
-        if (!close.has(via) || mine.has(far) || far === DB.me) return;
-        const m = API.member(far);
-        if (!m) return;
-        if (!found.has(far)) {
-          found.set(far, {
-            id: far, role: m.role, sector: m.sector, sub: m.sub, city: m.city,
-            gives: m.gives.length, via: []
-          });
-        }
-        found.get(far).via.push(via);
-      });
-    });
-    return [...found.values()];
-  },
-
-  /* ---- Mutations. In the real build each of these is one request; here they
-     change DB in place so the prototype behaves rather than pretends. ------ */
+  /* ---- Mutation. In the real build this is one request; here it changes DB
+     in place so the prototype behaves rather than pretends. --------------- */
 
   /* Passing an ask sends it one hop into your own network. They see the ask,
      never who asked, so all that is recorded here is that it happened. */
@@ -391,18 +329,6 @@ const API = {
     return DB.passed[id];
   },
   hasPassed: id => !!DB.passed[id],
-
-  /* The close circle. Mutual by construction: nothing is shared until both
-     have said yes, and a decline is silent, so the inviter simply never
-     learns. It is not decided yet, so nothing here reaches the API, and the
-     Introductions screen no longer offers invitations to answer. */
-  inCircle: id => DB.circle.includes(id),
-  hasInvited: id => DB.circleOut.includes(id),
-  inviteCircle(id) {
-    if (!API.member(id) || API.inCircle(id) || API.hasInvited(id)) return false;
-    DB.circleOut.push(id);
-    return true;
-  },
 
   /* Search anonymises STRANGERS, not everyone.
      Veiling someone whose name you already have is theatre, and theatre is

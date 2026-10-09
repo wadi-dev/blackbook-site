@@ -529,12 +529,6 @@
     const tab = e.target.closest(".tabbar [data-go], #sheet [data-go]");
     if (tab) { go(tab.dataset.go); return; }
 
-    /* In-content navigation, e.g. "Find them in Members" on the network
-       screen. Separate from the tab selector above so a screen button cannot
-       accidentally match the bar's aria state handling. */
-    const jump = e.target.closest("#screen [data-go-screen]");
-    if (jump) { go(jump.dataset.goScreen); return; }
-
     const seg = e.target.closest("#set-theme button, #set-density button");
     if (seg) {
       const group = seg.closest(".segmented");
@@ -591,16 +585,6 @@
     if (creq) { sendConnect(creq.dataset.connect); return; }
     const met = e.target.closest("[data-met]");
     if (met) { sendMet(met.dataset.met, met.dataset.id); return; }
-
-    /* ---- The close circle -------------------------------------------------- */
-    const cinv = e.target.closest("[data-circle-invite]");
-    if (cinv) {
-      const who = API.member(cinv.dataset.circleInvite);
-      if (API.inviteCircle(cinv.dataset.circleInvite)) {
-        toast(`Invited. If ${who.first} accepts, you will each see the other's private profile.`);
-      }
-      render(); return;
-    }
 
     /* ---- Reporting conduct ------------------------------------------------ */
     const rep = e.target.closest("[data-report]");
@@ -740,38 +724,6 @@
       BB.state.giveFilter = ""; BB.state.sectorFilter = ""; BB.state.subFilter = "";
       BB.state.menuPane = null; BB.state.menuAnim = null;
       render(); return;
-    }
-
-    const reach = e.target.closest('[data-reach="toggle"]');
-    if (reach) { BB.state.showReach = !BB.state.showReach; render(); return; }
-
-    /* Strength editing. The network screen is where you realise a 5 is now a 2,
-       so the correction has to be possible from there rather than nowhere. */
-    const openEdit = e.target.closest("[data-edit-strength]");
-    if (openEdit) {
-      BB.state.editStrength =
-        BB.state.editStrength === openEdit.dataset.editStrength
-          ? null : openEdit.dataset.editStrength;
-      render(); return;
-    }
-    const setVal = e.target.closest("[data-set-strength]");
-    if (setVal) {
-      const tie = DB.ties.find(t => t.id === setVal.dataset.id);
-      if (tie) {
-        const was = tie.strength;
-        tie.strength = Number(setVal.dataset.setStrength);
-        toast(was === tie.strength
-          ? "Unchanged."
-          : `Updated to ${tie.strength}. They are never told.`);
-      }
-      BB.state.editStrength = null;
-      render(); return;
-    }
-
-    const view = e.target.closest(".segmented button:not([id] button)");
-    if (view && view.closest(".page-head")) {
-      view.closest(".segmented").querySelectorAll("button").forEach(b =>
-        b.setAttribute("aria-pressed", b === view));
     }
   });
 
