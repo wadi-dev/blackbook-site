@@ -250,13 +250,13 @@ function go(screen) {
 
 /* A screen that declares .needs, a list of store keys, is drawn once the
    store holds data for every one of them. Until then #screen carries the
-   loading line, and if a fetch fails, the error box with Try again (boot.js
-   answers [data-store-retry] by rendering again). Screens without .needs
-   draw at once, as they always have.
+   screen's skeleton (below), and if a fetch fails, the error box with Try
+   again (boot.js answers [data-store-retry] by rendering again). Screens
+   without .needs draw at once, as they always have.
 
    A screen can name keys in .wants as well, for data that only part of it
    shows. It draws at once without them, and again when they land; until
-   then its element marked data-wants holds its own loading line, and if a
+   then its element marked data-wants holds its own skeleton, and if a
    fetch fails, that element alone gets the error box. So the Network graph
    failing to load leaves the invitation under it in place.
 
@@ -270,13 +270,13 @@ function go(screen) {
    A screen can name one part of itself in .keep, which a render of the same
    screen leaves where it is (keepPart, below).
 
-   Before any of that comes the onboarding gate (8 October 2026). Nothing is
-   drawn until /api/me has answered, and while it answers onboarded false
-   the onboarding screen (home.js) is drawn in place of whatever was asked
-   for: a tab, a link, a hash and a shortcut all arrive here. Once it answers
-   true, the gate opens on Home. An answer with no onboarded field at all,
-   from an API older than the gate, opens it, so nobody is held on a screen
-   that API cannot take. */
+   Before any of that comes the onboarding gate (8 October 2026). Nothing
+   but a skeleton is drawn until /api/me has answered, and while it answers
+   onboarded false the onboarding screen (home.js) is drawn in place of
+   whatever was asked for: a tab, a link, a hash and a shortcut all arrive
+   here. Once it answers true, the gate opens on Home. An answer with no
+   onboarded field at all, from an API older than the gate, opens it, so
+   nobody is held on a screen that API cannot take. */
 let renders = 0;
 
 /* A 404 body differs by route, so it is never shown here. */
@@ -288,6 +288,77 @@ function cannotLoad(err) {
         </div>`;
 }
 
+/* ----------------------------------------------------------- skeletons --- */
+/* A screen before its data has come: grey blocks where its cards will be,
+   at the heights they usually have, so nothing jumps when the data lands
+   (10 October 2026). Drawn by render() while a screen waits on the store,
+   and by boot.js before sign in has finished when a session is expected
+   (auth.js, likely). Nothing in one comes from the store or from a member,
+   so it can be on screen before the session is confirmed. A screen reader
+   hears "Loading" and nothing else.
+
+   Each height is [wide, phone], the phone one from 720px down (app.css),
+   both measured from alice's screens on the harness at 1280 and 375 wide;
+   Admin's from the founder's. A part is a head (the title and the line
+   under it), a block across the page with an optional space above it, a
+   section label, a stack of cards, the two columns of .cols.b (with the
+   page gap above them when the screen has it), the Network graph's box, or
+   Admin's section switch. The onboarding screen has none: it keeps the
+   loading line it always had. */
+const SKELETONS = {
+  home: [["head", [66, 109]], ["block", [82, 82]],
+         ["cols", [[196, 261], [270, 393]], [[333, 333], [191, 191]], true]],
+  gives: [["head", [82, 189]], ["cols", [[159, 223], [159, 223]], [[767, 810], [286, 286]]]],
+  introductions: [["head", [82, 103]], ["label"], ["stack", [203, 333], [190, 318]],
+                  ["block", [66, 143], 26]],
+  network: [["head", [82, 103]], ["graph"], ["cols", [[147, 199]], [[300, 321]], true]],
+  settings: [["head", [32, 32]], ["cols", [[249, 405], [156, 220], [395, 595]],
+                                          [[369, 380], [259, 269], [173, 184]]]],
+  admin: [["head", [125, 233]], ["tabs", [37, 138]], ["label"], ["block", [84, 84]]],
+  generic: [["head", [82, 103]], ["block", [200, 240]]]
+};
+
+function skeleton(name) {
+  if (name === "onboarding") {
+    return `<div class="shell"><p class="admin-state muted" role="status">Loading</p></div>`;
+  }
+  const size = ([wide, phone]) => `--h:${wide}px;--hn:${phone}px`;
+  const stack = list => `<div class="stack">${list.map(h =>
+    `<div class="skel skel-card" style="${size(h)}"></div>`).join("")}</div>`;
+  const parts = (SKELETONS[name] || SKELETONS.generic).map(([kind, ...a]) => {
+    if (kind === "head") return `<div class="skel-head" style="${size(a[0])}">` +
+      `<div class="skel skel-title"></div><div class="skel skel-sub"></div></div>`;
+    if (kind === "label") return `<div class="skel skel-label"></div>`;
+    if (kind === "stack") return stack(a);
+    if (kind === "cols") return `<div class="cols b"${a[2] ? ' style="margin-top:var(--gap)"' : ""}>` +
+      `${stack(a[0])}${stack(a[1])}</div>`;
+    if (kind === "graph") return `<div class="card net-card"><div class="net" style="display:grid;cursor:default">` +
+      `<div class="skel skel-fill"></div></div></div>`;
+    return `<div class="skel ${kind === "tabs" ? "skel-tabs" : "skel-block"}" style="${size(a[0])}` +
+      `${a[1] ? `;margin-top:${a[1]}px` : ""}"></div>`;
+  }).join("");
+  return `<div class="shell" data-skeleton="${esc(name)}">` +
+    `<p class="visually-hidden" role="status">Loading</p><div aria-hidden="true">${parts}</div></div>`;
+}
+
+/* Puts the screen's skeleton in #screen, unless it is there already: drawn
+   again, its shimmer would start over. */
+function showSkeleton(host, name) {
+  const now = host.firstElementChild;
+  if (now && now.dataset.skeleton === name) return;
+  host.innerHTML = skeleton(name);
+}
+
+/* The chrome, which holds nothing but the wordmark until /api/me has
+   answered (renderChrome), and the skeleton of the screen asked for.
+   Nothing from the store: boot.js draws this before sign in has finished. */
+function renderSkeleton() {
+  if (HIDDEN.includes(BB.state.screen)) BB.state.screen = "home";
+  renderChrome();
+  showSkeleton(document.getElementById("screen"),
+    BB.screens[BB.state.screen] ? BB.state.screen : "home");
+}
+
 function render() {
   if (HIDDEN.includes(BB.state.screen)) BB.state.screen = "home";
   const host = document.getElementById("screen");
@@ -295,7 +366,7 @@ function render() {
   const me = BB.store.peek("me");
   if (me === undefined) {
     renderChrome();
-    host.innerHTML = `<div class="shell"><p class="admin-state muted" role="status">Loading</p></div>`;
+    showSkeleton(host, BB.screens[BB.state.screen] ? BB.state.screen : "home");
     /* The keys the screen asked for set off now, beside /api/me, rather
        than once it has answered: the gate waits for me alone, and the
        render it opens on finds them in flight or landed, one round trip
@@ -318,7 +389,7 @@ function render() {
   if (fn.needs) {
     const waiting = BB.store.need(fn.needs);
     if (fn.needs.some(k => BB.store.peek(k) === undefined)) {
-      host.innerHTML = `<div class="shell"><p class="admin-state muted" role="status">Loading</p></div>`;
+      showSkeleton(host, BB.screens[BB.state.screen] ? BB.state.screen : "home");
       waiting.then(() => { if (seq === renders) render(); }, err => {
         if (seq !== renders) return;
         host.innerHTML = `<div class="shell">${cannotLoad(err)}</div>`;

@@ -2,7 +2,8 @@
 
    The graph is the caller's own invitation tree as GET /api/network answers
    it, two levels deep, laid out by D3's force simulation (assets/vendor/
-   d3.min.js, vendored so the CSP stays 'self' and the app opens offline).
+   d3.min.js, vendored so the CSP stays 'self' and the app opens offline,
+   and fetched only when this screen first mounts).
    You are the large node in the middle. The people you invited are filled
    and named, because the join door connected you to each of them. The
    people they invited are outlined and veiled: a handle, which is a role
@@ -49,7 +50,7 @@ function netGraph(net) {
 
   return `
   <div class="card net-card">
-    <svg id="net" class="net" role="img" aria-label="${esc(summary)}"></svg>
+    <svg id="net" class="net${window.d3 ? "" : " skel"}" role="img" aria-label="${esc(summary)}"></svg>
     <div class="graph-foot">
       <p class="small muted">${net.nodes.length
         ? "Tap someone to open their card. Drag to rearrange, pinch or scroll to zoom, and move around with two fingers on a phone."
@@ -78,7 +79,8 @@ BB.screens.network = function () {
   ${net ? netGraph(net) : `
   <div class="card net-card">
     <div class="net" data-wants="network" style="display:grid;place-items:center;cursor:default">
-      <p class="admin-state muted" role="status">Loading</p>
+      <div class="skel skel-fill" aria-hidden="true"></div>
+      <p class="visually-hidden" role="status">Loading</p>
     </div>
   </div>`}
 
@@ -155,10 +157,44 @@ let netKept = null;
    the next draw starts its own. */
 let netLive = null;
 
+/* D3 is 280 KB that only this screen uses, so it is fetched the first time
+   the screen mounts rather than parsed before any screen can draw
+   (10 October 2026). The tag carries the ?v= stamp the page gave this
+   file, so it is the copy the page's other files belong with, and sw.js
+   holds it for offline use. Fetched once and kept; a failure is forgotten,
+   so Try again fetches it afresh. Until it is in, the graph's box holds
+   its skeleton. */
+const NET_STAMP = document.currentScript ? new URL(document.currentScript.src).search : "";
+let d3Loading = null;
+const loadD3 = () => d3Loading || (d3Loading = new Promise((resolve, reject) => {
+  if (window.d3) { resolve(); return; }
+  const tag = document.createElement("script");
+  tag.src = "assets/vendor/d3.min.js" + NET_STAMP;
+  tag.addEventListener("load", () => window.d3 ? resolve() : reject(new Error("D3 did not define d3.")));
+  tag.addEventListener("error", () => { tag.remove(); reject(new Error("D3 could not be loaded.")); });
+  document.head.appendChild(tag);
+}).catch(e => { d3Loading = null; throw e; }));
+
 BB.screens.network.mount = function (host) {
   if (netLive) { netLive.stop(); netLive = null; }
   const svgEl = host.querySelector("#net");
+  /* Asked for on the first mount, while the graph's answer may still be on
+     its way and there is no SVG yet, so the two arrive side by side rather
+     than one after the other. Drawn when D3 is in, if this graph is still
+     the one on screen. If it cannot be had, the box says so as a failed
+     load says it anywhere, with Try again. */
+  if (!window.d3) {
+    loadD3().then(() => { if (svgEl && svgEl.isConnected) BB.screens.network.mount(host); }, e => {
+      console.error("BB.network:", e);
+      if (!svgEl || !svgEl.isConnected) return;
+      const box = el("div", "net", cannotLoad());
+      box.style.cssText = "display:grid;place-items:center;cursor:default";
+      svgEl.replaceWith(box);
+    });
+    return;
+  }
   if (!svgEl) return;
+  svgEl.classList.remove("skel");
   const net = API.network();
   const still = reducedMotion();
 

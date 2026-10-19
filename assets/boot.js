@@ -14,8 +14,9 @@
   setDensity(density);
 
   /* auth.js redirects a signed-out visitor. Rendering first would paint the
-     mock screens for a moment on their way out. If ready() rejects, auth.js
-     has already covered the page with its notice, so nothing is drawn behind
+     mock screens for a moment on their way out, so until ready() the page
+     holds a skeleton at most (below). If ready() rejects, auth.js has
+     already covered the page with its notice, so nothing is drawn behind
      it. Without auth.js (a page that never loaded it) the shell renders at
      once, as before. */
   /* A link can name a screen: the home-screen shortcut opens
@@ -74,8 +75,27 @@
       renderChrome();
     }, () => {});
 
-  if (BB.auth) BB.auth.ready().then(() => { render(); landed(); background(); }, () => {});
-  else { render(); landed(); background(); }
+  /* Before sign in has finished, and only where a session is expected
+     (auth.js, likely), the chrome and the skeleton of the screen asked for
+     go up at once (10 October 2026): neither holds anything from the store,
+     so nothing a member wrote is on screen before the session is confirmed.
+     Where none is expected nothing is drawn, and auth.js sends the visitor
+     to sign in as it always has. If ready() rejects, the skeleton is taken
+     away again.
+     "At once" is once the deferred scripts have run, pwa.js among them. The
+     iPhone's Add to Home Screen bar goes in above the page then, and a bar
+     put above a page already drawn is scrolled out of view (pwa.js), so a
+     skeleton drawn any sooner hid the bar, and moved the page wherever a
+     frame was painted in between (15 October 2026). Not over a render
+     that has already happened. */
+  if (BB.auth) {
+    let settled = false;
+    const early = () => { if (!settled && BB.auth.likely()) renderSkeleton(); };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", early, { once: true });
+    else early();
+    BB.auth.ready().then(() => { settled = true; render(); landed(); background(); },
+      () => { settled = true; document.getElementById("screen").innerHTML = ""; });
+  } else { render(); landed(); background(); }
 
   /* One field error from a 422, as a sentence. A field over its length is
      the one a member reaches (nothing here stops a long ask or give), and
@@ -445,6 +465,25 @@
       err => { toast(said(err, "That block has already gone.")); redraw(); });
   }
 
+  /* Adding a passkey, from Settings, only drawn when Clerk offers one
+     (BB.auth.passkeys). Clerk's server keeps it, so the toast waits for its
+     answer, and a double tap is one prompt. A prompt the member closed says
+     nothing; the row is drawn again only when the count has changed. The two
+     failures another tap cannot fix (auth.js marks them) say what will. */
+  const PASSKEY_SAID = {
+    exists: "This device already has a passkey for your account.",
+    reverify: "Sign out and sign in again, then add the passkey straight away."
+  };
+  function addPasskey() {
+    const sent = BB.store.write("passkey", () => BB.auth.addPasskey());
+    if (!sent) return;
+    sent.then(added => {
+      if (!added) return;
+      toast("Passkey added. Next time, sign in with Face ID or your fingerprint.");
+      if (BB.state.screen === "settings") render();
+    }, err => toast((err && PASSKEY_SAID[err.passkey]) || "The passkey could not be added. Try again."));
+  }
+
   /* Delegated once, at the document level, so it survives every re-render. */
   document.addEventListener("click", e => {
     /* An open menu closes on any click that lands outside it. The click is
@@ -700,7 +739,9 @@
       return;
     }
 
-    /* ---- Signing out and leaving ------------------------------------------ */
+    /* ---- Passkey, signing out and leaving --------------------------------- */
+    if (e.target.closest("[data-passkey]")) { addPasskey(); return; }
+
     if (e.target.closest("[data-sign-out]")) {
       BB.store.clear();
       BB.auth.signOut();

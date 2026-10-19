@@ -20,7 +20,7 @@
 
 "use strict";
 
-const VERSION = "2026-10-09.4";
+const VERSION = "2026-10-19.1";
 const CACHE = "blackbook-shell-" + VERSION;
 
 /* Every file the shell needs, and only those. Paths are relative to sw.js,
@@ -34,10 +34,12 @@ const CACHE = "blackbook-shell-" + VERSION;
    - inquire.html and assets/inquire.js: the inquiry door, for the same
      reason.
    - anything under assets/ that is fetched at runtime rather than loaded by
-     the pages (there is nothing today; keep it that way or list it here).
+     the pages, unless it is listed here. One is: assets/vendor/d3.min.js,
+     which the Network screen fetches when it first mounts (10 October
+     2026), so the graph still draws offline.
 
    This list must match the script and stylesheet tags on app.html exactly,
-   plus the pages a member can land on from the app. Any new script or
+   plus D3, plus the pages a member can land on from the app. Any new script or
    stylesheet the app page starts loading must be added here, or it is simply
    never cached and the app fails offline. That is the safe direction to fail
    in, but it is still a failure. */
@@ -55,6 +57,7 @@ const SHELL = [
   "assets/daylight.js",
   "assets/legal.js",
   "assets/config.js",
+  "assets/warm.js",
   "assets/data.js",
   "assets/core.js",
   "assets/auth.js",

@@ -112,22 +112,29 @@
     });
   }
 
-  /* ClerkJS fetches the instance environment on load and keeps it on the
-     instance. The accessor is marked unstable in v5 and was renamed in v6, so
+  /* One setting from the dashboard, read off the instance environment that
+     ClerkJS fetches on load and keeps: whether passkeys are on (passkeys()
+     below). The accessor is marked unstable in v5 and was renamed in v6, so
      both names are tried. Keys inside user settings stay snake_case.
-     Returns true if passwords can sign someone in, false if not, null if the
-     setting could not be read at all. */
-  function passwordIsLive(clerk) {
-    const env = clerk.__unstable__environment || clerk.__internal_environment;
-    const pw = env && env.userSettings && env.userSettings.attributes
-      && env.userSettings.attributes.password;
-    if (!pw || typeof pw.enabled !== "boolean") return null;
-    return Boolean(pw.enabled || pw.used_for_first_factor);
+     How members sign in is the dashboard's to decide. Until 15 October 2026
+     this file refused to start sign-in on an instance that accepted
+     passwords; passwords and passkeys are allowed since the founder's
+     decision of 10 October 2026, and docs/clerk.md has the settings. */
+  function passkeyIsOn(clerk) {
+    const env = clerk && (clerk.__unstable__environment || clerk.__internal_environment);
+    const pk = env && env.userSettings && env.userSettings.attributes
+      && env.userSettings.attributes.passkey;
+    return Boolean(pk && pk.enabled);
   }
 
   /* Clerk's components are themed from our tokens, read at mount so the
-     values already reflect the theme in effect. Old and new variable names
-     are both set: v5 accepts either and deprecates one set. */
+     values already reflect the theme in effect. Variables only: the colours,
+     so the card follows light and dark, and the font and corner radius. No
+     elements and no layout options (15 October 2026). Whatever the dashboard
+     switches on, a passkey button, a password field, "Use another method",
+     the address being signed in with its edit link, Clerk draws as it
+     designed it, and nothing here can hide or squeeze it. Old and new
+     variable names are both set: v5 accepts either and deprecates one set. */
   function appearance() {
     const css = getComputedStyle(document.documentElement);
     const v = name => css.getPropertyValue(name).trim();
@@ -149,26 +156,6 @@
         borderRadius: v("--r"),
         fontFamily: v("--font-body"),
         fontFamilyButtons: v("--font-body")
-      },
-      layout: { logoPlacement: "none", shimmer: false },
-      elements: {
-        cardBox: { boxShadow: "none", border: "1px solid " + v("--line") },
-        card: { boxShadow: "none" },
-        /* Tap-sized, and 16px in the field so iOS does not zoom on focus. */
-        formFieldInput: { fontSize: "16px", minHeight: "44px" },
-        formButtonPrimary: { minHeight: "44px" },
-        socialButtonsBlockButton: { minHeight: "44px" },
-        /* The page above the card already says "Sign in." and how, so the
-           card's own heading ("Sign in to Blackbook London" and "Welcome
-           back") would say it twice. These names apply to every step of the
-           flow, so the code step loses its "Check your email" line too; its
-           form still says where the code went. */
-        headerTitle: { display: "none" },
-        headerSubtitle: { display: "none" },
-        header: { display: "none" },     /* the box they sat in, or its padding stays */
-        /* Membership is by invitation. The join form is elsewhere, so the
-           "Don't have an account? Sign up" row has nothing to point at. */
-        footerAction: { display: "none" }
       }
     };
   }
@@ -198,18 +185,6 @@
         ? "No connection. Blackbook London needs a network to sign you in."
         : "Sign-in could not start. Try again in a moment.");
       throw e;
-    }
-
-    const live = passwordIsLive(clerk);
-    if (live === true) {
-      notice("Sign-in is paused. This Clerk instance accepts passwords, which "
-        + "Blackbook London does not allow. Turn Password off in the Clerk dashboard "
-        + "(docs/clerk.md) and reload.");
-      throw new Error("Clerk instance has password enabled as a first factor.");
-    }
-    if (live === null) {
-      console.warn("BB.auth: Clerk user settings were not readable, so the "
-        + "no-password check did not run. Check docs/clerk.md against the dashboard.");
     }
 
     if (mount) {
@@ -262,8 +237,19 @@
     return staff;
   };
 
+  /* Whether a session is to be expected before ClerkJS has said. Clerk keeps
+     a cookie on our own domain, __client_uat (and a twin with a suffix on
+     the name), holding the time of the last sign in, and 0 once signed out.
+     It says a session was here, not that one still is, so it decides only
+     whether boot.js draws a skeleton while ClerkJS loads, never whether
+     anything from the API is drawn. The demo is signed in from the first
+     byte. */
+  const likely = () => Boolean(DEV_BEARER) || document.cookie.split(";")
+    .some(c => /^\s*__client_uat(_[\w-]+)?=[1-9]\d*\s*$/.test(c));
+
   root.auth = {
     ready: () => ready,
+    likely,
     signedIn: () => DEV_BEARER ? true : Boolean(clerk && clerk.session),
     isStaff,
 
@@ -299,6 +285,75 @@
       if (!u) return null;
       const email = u.primaryEmailAddress ? u.primaryEmailAddress.emailAddress : null;
       return { id: u.id, email, firstName: u.firstName || "", lastName: u.lastName || "" };
+    },
+
+    /* What Settings needs to offer a passkey: { count } of those already on
+       the account, or null when there is nothing to offer. Null in the demo
+       and on the harness (no Clerk), with nobody signed in, while passkeys
+       are off in the dashboard, and in a browser that cannot make one. So
+       the row appears on the first load after the founder turns them on. */
+    passkeys: () => {
+      if (DEV_BEARER || !clerk || !clerk.user || !passkeyIsOn(clerk)) return null;
+      if (typeof window.PublicKeyCredential !== "function") return null;
+      return { count: (clerk.user.passkeys || []).length };
+    },
+
+    /* Asks the browser to make a passkey and Clerk to keep it. Resolves true
+       once Clerk has it, false if the member closed the prompt, and rejects
+       on anything else.
+       Clerk counts adding a passkey as a sensitive action: more than ten
+       minutes after the member last proved who they are, its server refuses
+       with session_reverification_required. Clerk's own account page then
+       opens its "Verify it's you" window and tries again, and so does this,
+       through the same call Clerk's components use. Closing that window is a
+       cancel too. A failure the browser reports is wrapped by ClerkJS in an
+       error with a code, so the codes for a cancelled or aborted prompt are
+       checked as well as the browser's own names.
+       Two failures that another tap cannot fix reject with `passkey` set, so
+       Settings can say what will work (boot.js): "exists", a passkey for this
+       account already on this device (Clerk's passkey_already_exists, the
+       browser's InvalidStateError), and "reverify", when the "Verify it's
+       you" window cannot be opened (the call is Clerk's internal one and may
+       go in a release), after which every tap is refused the same way until
+       the member signs in again. */
+    addPasskey: async () => {
+      await ready;
+      if (!root.auth.passkeys()) throw new Error("Passkeys are not available here.");
+      const cancelled = e => Boolean(e) && (e.name === "NotAllowedError" || e.name === "AbortError"
+        || e.code === "passkey_registration_cancelled" || e.code === "passkey_operation_aborted");
+      const exists = e => Boolean(e) && (e.name === "InvalidStateError"
+        || e.code === "passkey_already_exists");
+      const reverify = e => Boolean(e) && Array.isArray(e.errors)
+        && e.errors.some(x => x && x.code === "session_reverification_required");
+      const marked = (e, why) => Object.assign(new Error("Passkey not added: " + why), { passkey: why, cause: e });
+      const make = () => clerk.user.createPasskey();
+      try {
+        await make();
+      } catch (e) {
+        if (cancelled(e)) return false;
+        if (exists(e)) throw marked(e, "exists");
+        if (!reverify(e)) throw e;
+        if (typeof clerk.__internal_openReverification !== "function") throw marked(e, "reverify");
+        const verified = await new Promise(resolve => {
+          try {
+            clerk.__internal_openReverification({
+              afterVerification: () => resolve(true),
+              afterVerificationCancelled: () => resolve(false),
+              appearance: appearance()
+            });
+          } catch (opening) { resolve(null); }
+        });
+        if (verified === null) throw marked(e, "reverify");
+        if (!verified) return false;
+        try { await make(); } catch (again) {
+          if (cancelled(again)) return false;
+          if (exists(again)) throw marked(again, "exists");
+          throw again;
+        }
+      }
+      /* The count Settings draws is read off the user, so it is read again. */
+      await clerk.user.reload().catch(() => {});
+      return true;
     },
 
     toSignIn

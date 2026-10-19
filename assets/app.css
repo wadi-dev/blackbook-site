@@ -561,6 +561,33 @@ html.no-scroll { overflow: hidden; }
 }
 .empty b { color: var(--text); font-weight: 650; display: block; margin-bottom: 4px; }
 
+/* ----------------------------------------------------------- skeletons --- */
+/* A screen before its data has come (core.js, skeleton): grey blocks where
+   its cards will be, at their usual heights, in the screen's own columns.
+   --h is a block's height on a wide screen and --hn on a phone. The shimmer
+   is slow and faint, and left out wherever less motion has been asked for. */
+.skel { display: block; background-color: var(--recess); border-radius: var(--r); }
+.skel-head { height: var(--h); margin-bottom: var(--gap); overflow: hidden; }
+.skel-title { height: 28px; width: min(320px, 60%); border-radius: 8px; }
+.skel-sub { height: 14px; width: min(520px, 85%); margin-top: 14px; border-radius: 7px; }
+.skel-block, .skel-card, .skel-tabs { height: var(--h); }
+.skel-card + .skel-card { margin-top: 14px; }
+.skel-tabs { width: 536px; max-width: 100%; margin-bottom: var(--gap); }
+.skel-label { height: 23px; width: 140px; margin-bottom: 14px; border-radius: 8px; }
+.skel-fill { width: 100%; height: 100%; border-radius: 0; }
+.net.skel { border-radius: 0; }
+@media (max-width: 720px) {
+  .skel-head, .skel-block, .skel-card, .skel-tabs { height: var(--hn, var(--h)); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .skel {
+    background-image: linear-gradient(100deg, transparent 35%, var(--wash) 50%, transparent 65%);
+    background-size: 300% 100%;
+    animation: skel-shimmer 2.4s ease-in-out infinite;
+  }
+}
+@keyframes skel-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+
 /* ------------------------------------------------------------- buttons --- */
 
 .btn {

@@ -209,6 +209,11 @@ BB.screens.settings = function () {
     `<div class="segmented" id="${id}" role="group">` +
     opts.map(([v, l]) => `<button data-v="${v}" aria-pressed="${current === v}">${l}</button>`).join("") +
     `</div>`;
+  /* { count } when Clerk has passkeys switched on and can make one here,
+     otherwise null and no row (auth.js). Never on the harness. */
+  const pk = BB.auth && BB.auth.passkeys ? BB.auth.passkeys() : null;
+  const held = n => n === 0 ? "None on your account yet."
+    : n === 1 ? "One on your account." : n + " on your account.";
 
   return `
   <div class="page-head"><div><h1>Settings</h1></div></div>
@@ -279,6 +284,13 @@ BB.screens.settings = function () {
               Your name stays attached. Inviting happens from your Network page.</div></div>
           <span class="pill">${me.founder ? "No limit" : me.invitesLeft + " left"}</span>
         </div>
+
+        ${pk ? `
+        <div class="set-row">
+          <div><div class="t">Passkey</div>
+            <div class="d">Sign in with Face ID or your fingerprint. ${held(pk.count)}</div></div>
+          <button class="btn sm" data-passkey data-id="passkey">Add a passkey</button>
+        </div>` : ""}
 
         <div class="set-row">
           <div><div class="t">Sign out</div>

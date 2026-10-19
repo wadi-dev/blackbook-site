@@ -8,23 +8,33 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Blackbook London</title>
 <meta name="description" content="A private, referral-only network.">
+<!-- Started from the head, so the slow parts are under way while the page
+     is still arriving: ClerkJS, the 90 KB sign in waits on, fetched exactly
+     as auth.js asks for it, and connections to Clerk and to the API. Both
+     hosts are in the policy above, ClerkJS in script-src. Clerk's
+     connection has no crossorigin because clerk.load() sends its cookies;
+     the API's has it because api.js and warm.js send none, and a browser
+     keeps the two kinds of connection apart. -->
+<link rel="preconnect" href="https://clerk.blackbook.london">
+<link rel="preconnect" href="https://blackbook-london-api.fly.dev" crossorigin>
+<link rel="preload" href="https://clerk.blackbook.london/npm/@clerk/clerk-js@5/dist/clerk.browser.js" as="script" crossorigin="anonymous">
 <!-- One theme-color, no media query. The page is dark or light by
      daylight.js (a sunset clock, or the member's choice), not by the
      phone's own setting, so a tag that followed the phone would put a
      white status bar over a dark page. daylight.js sets this from the same
      decision that sets the page, so it sits above that script. -->
 <meta name="theme-color" content="#FFFFFF" data-light="#FFFFFF" data-dark="#121212">
-<script src="assets/daylight.js?v=1791575670"></script>
-<link rel="stylesheet" href="assets/app.css?v=1791575670">
+<script src="assets/daylight.js?v=1792431821"></script>
+<link rel="stylesheet" href="assets/app.css?v=1792431821">
 <link rel="manifest" href="manifest.json">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Blackbook London">
-<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png?v=1791575670">
-<link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=1791575670">
-<link rel="alternate icon" href="favicon.ico?v=1791575670">
-<script src="assets/pwa.js?v=1791575670" defer data-install></script>
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png?v=1792431821">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=1792431821">
+<link rel="alternate icon" href="favicon.ico?v=1792431821">
+<script src="assets/pwa.js?v=1792431821" defer data-install></script>
 </head>
 <body>
 
@@ -45,29 +55,30 @@
 <!-- Config first, then data and shell. auth.js follows core.js because core.js
      declares BB and auth.js attaches to it. Any script added here must also be
      added to SHELL in sw.js, with a VERSION bump, or the app fails offline. -->
-<script src="assets/config.js?v=1791575670"></script>
-<script src="assets/data.js?v=1791575670"></script>
-<script src="assets/core.js?v=1791575670"></script>
-<script src="assets/auth.js?v=1791575670"></script>
-<script src="assets/api.js?v=1791575670"></script>
-<script src="assets/store.js?v=1791575670"></script>
+<script src="assets/config.js?v=1792431821"></script>
+<script src="assets/warm.js?v=1792431821"></script>
+<script src="assets/data.js?v=1792431821"></script>
+<script src="assets/core.js?v=1792431821"></script>
+<script src="assets/auth.js?v=1792431821"></script>
+<script src="assets/api.js?v=1792431821"></script>
+<script src="assets/store.js?v=1792431821"></script>
 
-<!-- D3 v7, vendored from the npm registry rather than loaded from a CDN, so
-     the CSP stays 'self' and the Network graph works offline. -->
-<script src="assets/vendor/d3.min.js?v=1791575670"></script>
+<!-- D3 v7 (assets/vendor/d3.min.js, vendored so the CSP stays 'self' and
+     the Network graph works offline) is not loaded here. The Network screen
+     fetches it the first time it mounts, and sw.js still holds it. -->
 
 <!-- Screens register themselves on BB.screens -->
-<script src="assets/screens/home.js?v=1791575670"></script>
-<script src="assets/screens/network.js?v=1791575670"></script>
-<script src="assets/screens/asks.js?v=1791575670"></script>
-<script src="assets/screens/gives.js?v=1791575670"></script>
-<script src="assets/screens/members.js?v=1791575670"></script>
-<script src="assets/screens/introductions.js?v=1791575670"></script>
-<script src="assets/screens/profile.js?v=1791575670"></script>
-<script src="assets/screens/admin.js?v=1791575670"></script>
+<script src="assets/screens/home.js?v=1792431821"></script>
+<script src="assets/screens/network.js?v=1792431821"></script>
+<script src="assets/screens/asks.js?v=1792431821"></script>
+<script src="assets/screens/gives.js?v=1792431821"></script>
+<script src="assets/screens/members.js?v=1792431821"></script>
+<script src="assets/screens/introductions.js?v=1792431821"></script>
+<script src="assets/screens/profile.js?v=1792431821"></script>
+<script src="assets/screens/admin.js?v=1792431821"></script>
 
 <!-- Boot last, once every screen exists -->
-<script src="assets/boot.js?v=1791575670"></script>
+<script src="assets/boot.js?v=1792431821"></script>
 
 </body>
 </html>

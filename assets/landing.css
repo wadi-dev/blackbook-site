@@ -213,14 +213,27 @@ a.wordmark { text-decoration: none; color: var(--text); }
 .lp-centre .lp-bar, .lp-centre .lp-foot { width: 100%; }
 .lp-centre main .lp-rule { width: 100%; }
 .lp-centre #signin { width: 100%; display: flex; justify-content: center; }
-/* As tall as the card Clerk mounts into it, before it has (9 October 2026).
-   Measured on the live page: the email step's card is 286px at 375px and at
-   1280px alike, since none of its rows wrap. Until it mounted the page
-   centred an empty box and moved the heading, the lead and the footer by
-   half the card's height when it arrived. The floor holds everything where
-   it ends up; a card a pixel taller on another platform's fonts moves the
-   page by half a pixel, under what counts as a shift. */
-.lp-centre #signin { min-height: 286px; }
+/* Room for the card Clerk mounts here, held before it arrives, so the
+   heading, the lead and the footer do not move when it does. A floor, never
+   a height: a taller step (a password field, "Use another method", the list
+   of other ways in) grows the box and pushes the footer down, and nothing
+   is clipped.
+   Sized for the email step with passkeys on (15 October 2026). The card is
+   Clerk's own now, its heading and the "Use passkey instead" link included,
+   and the dashboard decides which of those it draws, so the floor is the
+   tallest first step: with passkeys off it leaves a gap under the card
+   rather than a jump. Worked out from the 286px measured on the live page on
+   9 October (the card without its heading, both widths) and Clerk 5's own
+   sizes: the heading is 24px and 18px lines with 32px under it, the passkey
+   link 18px with 32px above it, and narrower than 380px the subtitle may
+   wrap (18px), narrower than 356px the title too (24px). The 286 had our
+   44px button in it, which is gone (app.css still makes the email field
+   44px on a touch screen), so the real card should come in a little under
+   these floors. Measure the live email step once passkeys are on, and lower
+   them to it. */
+.lp-centre #signin { min-height: 414px; }
+@media (max-width: 379px) { .lp-centre #signin { min-height: 432px; } }
+@media (max-width: 355px) { .lp-centre #signin { min-height: 456px; } }
 
 /* The one form on the public side. Rules scoped to .lp-enter so the app's
    form tokens in app.css are inherited, not copied. */
