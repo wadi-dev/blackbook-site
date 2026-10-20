@@ -1,2 +1,6 @@
 .DS_Store
 __pycache__/
+
+# Tool caches never belong on the public site
+.ruff_cache/
+.pytest_cache/
