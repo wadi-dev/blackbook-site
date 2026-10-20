@@ -214,6 +214,16 @@ BB.screens.settings = function () {
   const pk = BB.auth && BB.auth.passkeys ? BB.auth.passkeys() : null;
   const held = n => n === 0 ? "None on your account yet."
     : n === 1 ? "One on your account." : n + " on your account.";
+  /* { has } when Clerk has password sign-in switched on, otherwise null and
+     no row (auth.js). Never on the harness. The form is for the phone or
+     browser as much as for the member: the address the member signs in with,
+     in a field nobody sees, so the password is kept under the right account,
+     and a new-password field, where an iPhone offers a strong password and
+     saves it. Neither field has a name, so nothing could go into a page
+     address if the form were ever sent the ordinary way; boot.js sends the
+     password to Clerk and nowhere else. */
+  const pw = BB.auth && BB.auth.password ? BB.auth.password() : null;
+  const signInEmail = (pw && BB.auth.user() && BB.auth.user().email) || "";
 
   return `
   <div class="page-head"><div><h1>Settings</h1></div></div>
@@ -259,7 +269,7 @@ BB.screens.settings = function () {
         </p>
         <ul style="list-style:none">
           ${[["Your name is never shown in search.",
-              "Another member sees your role, your sector and your city. Nothing else, until you have agreed."],
+              "Another member sees your role and your city. Nothing else, until you have agreed."],
              ["How strongly you vouch is never shown to them.",
               "The scale is your own record."],
              ["A block is never disclosed.",
@@ -291,6 +301,25 @@ BB.screens.settings = function () {
             <div class="d">Sign in with Face ID or your fingerprint. ${held(pk.count)}</div></div>
           <button class="btn sm" data-passkey data-id="passkey">Add a passkey</button>
         </div>` : ""}
+
+        ${pw && pw.has ? `
+        <div class="set-row" data-password-saved>
+          <div><div class="t">Password</div>
+            <div class="d">A password is saved on your account. To change it, sign out and choose
+              "Forgot password?" on the sign-in page.</div></div>
+        </div>` : pw ? `
+        <form class="set-row set-pw" data-password-form novalidate>
+          <div><div class="t">Password</div>
+            <div class="d">Save a password and your phone or browser fills it in next time,
+              so you skip the email code.</div></div>
+          <div class="set-pw-f">
+            <input class="visually-hidden" id="pw-username" autocomplete="username"
+              value="${esc(signInEmail)}" readonly tabindex="-1" aria-hidden="true">
+            <input type="password" id="pw-new" autocomplete="new-password" minlength="15"
+              aria-label="New password" placeholder="At least 15 characters">
+            <button class="btn sm" type="submit" data-id="password">Save password</button>
+          </div>
+        </form>` : ""}
 
         <div class="set-row">
           <div><div class="t">Sign out</div>
@@ -356,3 +385,11 @@ BB.screens.settings = function () {
   </div>`;
 };
 BB.screens.settings.needs = ["me", "blocks"];
+/* A password saved on this visit: the row keeps the height the form had
+   (boot.js), through every redraw of Settings, so nothing under it moves.
+   go() forgets it (core.js), and the next visit draws the row at its own
+   height. */
+BB.screens.settings.mount = host => {
+  const row = BB.state.passwordRow && host.querySelector("[data-password-saved]");
+  if (row) row.style.minHeight = BB.state.passwordRow + "px";
+};

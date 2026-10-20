@@ -27,7 +27,7 @@
     started: false,
     loading: false,
     tab: "applications",
-    apps: { rows: [], error: null },
+    apps: { rows: [], error: null, fresh: false },
     queue: { rows: [], error: null },
     conduct: { rows: [], error: null, fresh: false },
     lineage: { rows: [], error: null, fresh: false },
@@ -76,23 +76,14 @@
     }
   }
 
-  /* The lineage is read only when the tab on screen needs a name from it.
-     Every read of it records a "lineage" look on every member's own trail,
-     so reading it on each visit would fill every trail with looks nobody
-     took. Applications needs it for a referrer, Introductions for both
-     parties and Conduct for each reported member and each reporter, and only
-     for an id it does not already hold. The Lineage tab needs it once after
-     each load, because the tree is what it shows. */
-  function needsLineage() {
-    if (S.tab === "lineage") return !S.lineage.fresh;
-    const known = new Set(S.lineage.rows.map(r => r.id));
-    const ids = S.tab === "applications" ? S.apps.rows.map(r => r.referrer_id)
-      : S.tab === "introductions" ? S.queue.rows.flatMap(r => [r.requester_id, r.target_id])
-      : S.tab === "conduct" ? S.conduct.rows.map(r => r.subject_id)
-        .concat(Array.from(S.reports.values()).flat().map(r => r.reporter_id))
-      : [];
-    return ids.some(id => id && !known.has(id));
-  }
+  /* The lineage is read only while its own tab is up, once after each load,
+     because the tree is what it shows. Every read of it records a "lineage"
+     look on every member's own trail, so a read for any other tab would fill
+     every trail with looks nobody took. No other tab needs it: Applications,
+     Introductions and Conduct get each name beside its row (referrer_name,
+     requester_name and target_name, subject_name, reporter_name), with the
+     look recorded at that one member. */
+  const needsLineage = () => S.tab === "lineage" && !S.lineage.fresh;
 
   async function names() {
     if (!needsLineage()) return;
@@ -112,24 +103,59 @@
     S.conduct.fresh = !S.conduct.error;
   }
 
+  /* The applications list likewise, while its tab is up, once after each
+     load: every read of it records a look at each applicant and at each
+     applicant's referrer, whose own trail shows it, and a look is recorded
+     only for a name the founder is shown. */
+  const needsApps = () => S.tab === "applications" && !S.apps.fresh;
+
+  async function applicants() {
+    if (!needsApps()) return;
+    await fetchInto(S.apps, "/api/broker/applications");
+    S.apps.fresh = !S.apps.error;
+  }
+
+  /* The introduction queue likewise, while its tab is up, once after each
+     load: every read of it records a look at both parties on every row,
+     each tied to its introduction (see introductionList). */
+  const needsQueue = () => S.tab === "introductions" && !S.queue.fresh;
+
+  async function queue() {
+    if (!needsQueue()) return;
+    await fetchInto(S.queue, "/api/broker/queue");
+    S.queue.fresh = !S.queue.error;
+  }
+
+  const needsList = () => needsApps() || needsQueue() || needsConduct() || needsLineage();
+
+  /* The list the tab on screen reads, if any. At most one of the four is
+     wanted, as each belongs to its own tab. The broker may switch tab while
+     it is out, so the question is asked again until the tab has stayed put
+     through a whole pass; a list refused once is not asked for again until
+     the tab changes or the next load. */
+  async function lists() {
+    let tab;
+    while (tab !== S.tab) {
+      tab = S.tab;
+      await applicants();
+      await queue();
+      await conduct();
+      await names();
+    }
+  }
+
   async function load() {
     S.loading = true;
+    S.apps.fresh = false;
+    S.queue.fresh = false;
     S.lineage.fresh = false;
     S.conduct.fresh = false;
     S.reports.clear();
     if (isAdmin()) render();
-    /* The other three every time, whichever tab is up, so a switch of tab
-       does not wait on the network for them. None of the three is a look at
-       every member, nor at every member reported. */
-    await Promise.all([
-      fetchInto(S.apps, "/api/broker/applications"),
-      fetchInto(S.queue, "/api/broker/queue"),
-      fetchInto(S.inquiries, "/api/broker/inquiries")
-    ]);
-    /* After the lists, so the question is asked of the rows that came back
-       and of whichever tab is up by then. */
-    await conduct();
-    await names();
+    /* The inquiries every time, whichever tab is up, so a switch to them
+       does not wait on the network. Reading them is not a look at any
+       member. Beside them, the list of the tab that is up. */
+    await Promise.all([fetchInto(S.inquiries, "/api/broker/inquiries"), lists()]);
     S.loading = false;
     /* The broker may have moved on while the request was out; drawing this
        screen over another would be worse than dropping a redraw. */
@@ -189,12 +215,11 @@
     BB.store.invalidate("introductions");
   }
 
-  /* A party's card, read only when asked for: every staff read of a card is
-     a look recorded on that member's own trail, with this reason. The store
-     keeps it for the page session, so closing it and opening it again reads
-     nothing. The reason is the one every other card read gives (core.js):
-     the member reads it beside the look, and a reason that named the
-     review would tell an asker the other side had said yes. */
+  /* The other side's card, read only when asked for: every staff read of a
+     card is a look recorded on that member's own trail, with this reason.
+     The store keeps it for the page session, so closing it and opening it
+     again reads nothing. The reason is the one every other card read gives
+     (core.js). The asker has no card button on the queue (introductionList). */
   const CARD_REASON = "member card";
 
   async function card(introId, memberId) {
@@ -217,8 +242,8 @@
   /* One member's reports, read only when asked for and read again on each
      opening, so what is shown is what is on file. Each read is a conduct
      look recorded with this reason, which the member's own trail leaves out.
-     The reporters' names come from the lineage, which may need reading for a
-     reporter who joined after it was last read. */
+     Each report carries its reporter's name, which the API records on the
+     same staff-only conduct record and never on the reporter's own trail. */
   const REPORTS_REASON = "conduct review";
 
   async function reports(memberId) {
@@ -230,7 +255,6 @@
       const rows = await BB.api("/api/conduct/reports/" + encodeURIComponent(memberId)
         + "?reason=" + encodeURIComponent(REPORTS_REASON));
       S.reports.set(memberId, Array.isArray(rows) ? rows : []);
-      await names();
     } catch (e) {
       S.notice = e && e.status === 404 ? "Those reports are no longer on file."
         : e && e.detail ? e.detail : "Could not load the reports.";
@@ -383,13 +407,12 @@
     if (kind === "tab") {
       if (!TABS.some(([key]) => key === b.dataset.tab)) return;
       S.tab = b.dataset.tab;
-      /* A load in flight asks for the index and the names of whichever tab
-         is up when its lists land, so only a switch between loads asks here.
-         The names are asked for after the index, whose rows they are for. */
-      if (S.loading || !(needsConduct() || needsLineage())) { render(); return; }
+      /* A read in flight asks again for whichever tab is up when it lands
+         (lists), so only a switch while nothing is out asks here. */
+      if (S.loading || !needsList()) { render(); return; }
       S.loading = true;
       render();
-      conduct().then(names).then(() => { S.loading = false; if (isAdmin()) render(); });
+      lists().then(() => { S.loading = false; if (isAdmin()) render(); });
       return;
     }
     /* Neither waits on a decision in flight, nor holds one up. */
@@ -473,19 +496,20 @@
 
   /* ------------------------------------------------------- applications --- */
 
-  const referrerLine = (id, byId) => {
-    if (!id) return "No referrer";
-    if (!byId.has(id)) return "Referrer not on the list";
-    return "Invited by " + (byId.get(id) || "a departed seat");
+  /* referrer_name is null when there is no referrer and empty for one whose
+     record has been erased. */
+  const referrerLine = r => {
+    if (!r.referrer_id) return "No referrer";
+    if (r.referrer_name == null) return "Referrer not on the list";
+    return "Invited by " + (r.referrer_name || "a departed seat");
   };
 
   function applications() {
     const a = S.apps;
     if (a.error) return `<div class="empty"><b>Could not load applications.</b>${esc(a.error)}</div>`;
-    if (S.loading && (!a.rows.length || needsLineage())) return `<p class="admin-state muted">Loading</p>`;
+    if (S.loading && !a.rows.length) return `<p class="admin-state muted">Loading</p>`;
     if (!a.rows.length) return `<div class="empty">Nothing waiting.</div>`;
 
-    const byId = new Map(S.lineage.rows.map(r => [r.id, r.name]));
     const off = S.busy ? " disabled" : "";
     return `<div class="stack">${a.rows.map(r => `
       <div class="card admin-row">
@@ -494,7 +518,7 @@
             <div class="admin-name">${esc(r.name) || '<span class="muted">Unnamed</span>'}</div>
             <div class="small muted">${esc(r.role_title)} at ${esc(r.firm)}</div>
             <div class="small muted">${[r.sector, r.city].filter(Boolean).map(esc).join(" · ")}</div>
-            <div class="small muted" style="margin-top:6px">${esc(referrerLine(r.referrer_id, byId))}
+            <div class="small muted" style="margin-top:6px">${esc(referrerLine(r))}
               · Applied ${esc(day(r.created_at))}, ${esc(ago(r.created_at))}</div>
           </div>
           <div class="row admin-acts">
@@ -651,17 +675,15 @@
      is. */
   const CAUSES = [["not_a_fit", "Not a fit"], ["conflict", "Conflict"], ["broker_stopped", "Other"]];
 
-  /* Names come from the lineage, by id. The queue carries none. */
-  const who = (id, byId) => {
-    if (!byId.has(id)) return '<span class="muted">a seat not on the list</span>';
-    return byId.get(id) ? esc(byId.get(id)) : '<span class="muted">a departed seat</span>';
-  };
+  /* A name the API sent beside the row, here and on Conduct. Empty for a
+     member whose record has been erased. */
+  const named = name => name ? esc(name) : '<span class="muted">a departed seat</span>';
 
   const since = (word, iso) => iso ? word + " " + day(iso) + ", " + ago(iso) : "";
 
-  const cardButton = (r, id, byId, off) => `
+  const cardButton = (r, id, name, unnamed, off) => `
             <button class="btn quiet sm" data-admin="card" data-intro="${esc(r.id)}" data-id="${esc(id)}"
-              aria-expanded="${S.open.has(r.id + " " + id)}"${off}>${byId.get(id) ? esc(byId.get(id)) + "'s card" : "Card"}</button>`;
+              aria-expanded="${S.open.has(r.id + " " + id)}"${off}>${name ? esc(name) + "'s card" : unnamed}</button>`;
 
   /* The StaffView the store holds, drawn once it is open. */
   const cardOf = (r, id) => {
@@ -687,25 +709,31 @@
           <button class="btn quiet sm" data-admin="stop-cancel"${off}>Cancel</button>
         </div>`;
 
-  /* Oldest first, as the API sends them. Two times on each: when it was
-     asked for, and when the other side said yes and it reached you. */
+  /* Oldest first, as the API sends them. Both names come with the row,
+     requester_name and target_name (20 October 2026). The API reads each
+     through view_of with a reason of its own and ties the look to this
+     introduction: the other side's trail shows it at once, and the asker's
+     only if the introduction is released. Only the other side has a card
+     button. A card read is not tied to the introduction, so the asker would
+     see it on their trail at once, and the queue's own look is the one
+     their trail holds back. Two times on each: when it was asked for, and
+     when the other side said yes and it reached you. */
   function introductionList() {
     const q = S.queue;
     if (q.error) return `<div class="empty"><b>Could not load the introductions.</b>${esc(q.error)}</div>`;
-    if (S.loading && (!q.rows.length || needsLineage())) return `<p class="admin-state muted">Loading</p>`;
+    if (S.loading && !q.rows.length) return `<p class="admin-state muted">Loading</p>`;
     if (!q.rows.length) return `<div class="empty">Nothing waiting.</div>`;
 
-    const byId = new Map(S.lineage.rows.map(r => [r.id, r.name]));
     const off = S.busy ? " disabled" : "";
     return `<div class="stack">${q.rows.map(r => `
       <div class="card admin-row">
         <div class="spread" style="align-items:flex-start">
           <div class="grow">
-            <div class="admin-name">${who(r.requester_id, byId)} <span class="muted">asked to meet</span> ${who(r.target_id, byId)}</div>
+            <div class="admin-name">${named(r.requester_name)} <span class="muted">asked to meet</span> ${named(r.target_name)}</div>
             <div class="small muted" style="margin-top:6px">${esc([since("Asked", r.requested_at),
               since("Accepted", r.accepted_at)].filter(Boolean).join(" · "))}</div>
-            <div class="row" style="margin-top:8px">${cardButton(r, r.requester_id, byId, off)}${cardButton(r, r.target_id, byId, off)}
-            </div>${cardOf(r, r.requester_id)}${cardOf(r, r.target_id)}
+            <div class="row" style="margin-top:8px">${cardButton(r, r.target_id, r.target_name, "Other side's card", off)}
+            </div>${cardOf(r, r.target_id)}
           </div>
           <div class="row admin-acts">
             <button class="btn primary sm" data-admin="release" data-id="${esc(r.id)}"${off}>Release</button>
@@ -723,7 +751,7 @@
   /* Oldest first, as the API sends them. The reason reads in the words the
      member chose it by (REPORT_REASONS in data.js), and the detail as they
      wrote it. */
-  const reportsOf = (id, byId) => {
+  const reportsOf = id => {
     const rows = S.reports.get(id);
     if (!rows) return "";
     if (!rows.length) return `
@@ -731,7 +759,7 @@
     return rows.map((x, i) => `
             <div class="small" style="margin-top:10px;${i ? "" : "padding-top:10px;border-top:1px solid var(--line)"}">
               <div><b>${esc(REPORT_REASONS[x.reason] || x.reason)}</b></div>
-              <div class="muted">${who(x.reporter_id, byId)} · ${esc(day(x.at))}</div>
+              <div class="muted">${named(x.reporter_name)} · ${esc(day(x.at))}</div>
               ${x.detail ? `<div class="muted" style="margin-top:4px;white-space:pre-wrap;overflow-wrap:anywhere">${esc(x.detail)}</div>` : ""}
             </div>`).join("");
   };
@@ -742,21 +770,20 @@
   function conductList() {
     const c = S.conduct;
     if (c.error) return `<div class="empty"><b>Could not load the reports.</b>${esc(c.error)}</div>`;
-    if (S.loading && (!c.rows.length || needsLineage())) return `<p class="admin-state muted">Loading</p>`;
+    if (S.loading && !c.rows.length) return `<p class="admin-state muted">Loading</p>`;
     if (!c.rows.length) return `<div class="empty">Nobody has been reported.</div>`;
 
-    const byId = new Map(S.lineage.rows.map(r => [r.id, r.name]));
     const off = S.busy ? " disabled" : "";
     return `<div class="stack">${c.rows.map(r => `
       <div class="card admin-row">
         <div class="spread" style="align-items:flex-start">
           <div class="grow">
-            <div class="admin-name">${who(r.subject_id, byId)}</div>
+            <div class="admin-name">${named(r.subject_name)}</div>
             <div style="margin-top:6px"><span class="pill ${r.reporters >= 2 ? "solid" : "plain"}">${esc(
               plural(r.reports, "report", "reports") + " from " + plural(r.reporters, "member", "members"))}</span></div>
             <div class="small muted" style="margin-top:6px">${esc(r.reports > 1
               ? since("First reported", r.first_at) + " · " + since("Latest", r.latest_at)
-              : since("Reported", r.first_at))}</div>${reportsOf(r.subject_id, byId)}
+              : since("Reported", r.first_at))}</div>${reportsOf(r.subject_id)}
           </div>
           <div class="row admin-acts">
             <button class="btn sm" data-admin="reports" data-id="${esc(r.subject_id)}"

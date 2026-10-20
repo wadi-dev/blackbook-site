@@ -234,6 +234,14 @@ a.wordmark { text-decoration: none; color: var(--text); }
 .lp-centre #signin { min-height: 414px; }
 @media (max-width: 379px) { .lp-centre #signin { min-height: 432px; } }
 @media (max-width: 355px) { .lp-centre #signin { min-height: 456px; } }
+/* Clerk's password field at 16px on a touch screen, below which an iPhone
+   zooms the page when the field is tapped (19 October 2026). The rule for
+   every field in app.css names a bare input, which Clerk's own class
+   outweighs, so the id is what carries it. Its size alone: the email field
+   is 16px already (app.css), and nothing else of the card is touched.
+   ClerkJS 5.128 sets its fields to 17px on iOS itself; this holds the 16px
+   if a later 5.x release, which auth.js would load, stops doing so. */
+@media (pointer: coarse) { #signin input[type="password"] { font-size: 16px; } }
 
 /* The one form on the public side. Rules scoped to .lp-enter so the app's
    form tokens in app.css are inherited, not copied. */

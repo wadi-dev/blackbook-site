@@ -243,6 +243,7 @@ function go(screen) {
 
   BB.state.screen = screen;
   BB.state.detail = null;
+  BB.state.passwordRow = 0;      /* Settings' held Password row (profile.js) */
   if (BB.sheetOpen) setSheet(false);
   render();
   window.scrollTo(0, 0);

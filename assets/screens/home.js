@@ -213,7 +213,7 @@ BB.screens.onboarding = function () {
           ${text("last_name", "Last name", 120, "family-name")}
         </div>
         <div class="ob-pair">
-          ${text("firm", "Firm", 160, "organization")}
+          ${text("firm", "Firm, family office or holding company", 160, "organization")}
           ${text("role_title", "Role", 160, "organization-title")}
         </div>
         ${text("city", "City", 80, "address-level2")}
@@ -224,7 +224,7 @@ BB.screens.onboarding = function () {
         <p class="small muted ob-hint" id="ob-linkedin_url-hint">When an introduction is made, the
           other member is given this and your email address.</p>
         ${msg("linkedin_url")}
-        <p class="small muted ob-foot">Another member sees your role, your sector and your city.
+        <p class="small muted ob-foot">Another member sees your role and your city.
           Nothing else, until you have agreed.</p>
       </div>
 

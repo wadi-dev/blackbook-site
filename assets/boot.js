@@ -484,6 +484,61 @@
     }, err => toast((err && PASSKEY_SAID[err.passkey]) || "The passkey could not be added. Try again."));
   }
 
+  /* Saving a password, from Settings, only drawn while Clerk has password
+     sign-in on and the account has none (BB.auth.password). The password is
+     read off the field, handed to BB.auth.setPassword, which sends it to
+     Clerk, and is never kept, logged or sent anywhere else. One write at a
+     time, so a double tap or a second Enter is one request, and the toast
+     waits for Clerk's answer. The field is emptied whatever the answer. One
+     shorter than the field's minimum is not sent, because Clerk would refuse
+     it, and nor is one over 72 bytes, Clerk's maximum. The field has no
+     maxlength: that cut a long paste to 72 without a word, and the cut
+     version was then saved as if it were what the member chose. Saved, the
+     row is drawn again and says a password is saved, at the form's height
+     until the member leaves Settings (profile.js), so nothing under it moves
+     when Clerk answers. A "Verify it's you" window the member closed says
+     nothing. */
+  const PASSWORD_SAID = {
+    breached: "That password has appeared in a data breach. Choose another.",
+    short: "Use at least 15 characters.",
+    reverify: "Sign out and sign in again, then save the password straight away.",
+    long: "That password is too long. Use a shorter one."
+  };
+  function savePassword(form) {
+    const field = form.querySelector('input[type="password"]');
+    /* Emptied only once Clerk has the password. A refused one stays in the
+       field, selected for retyping: emptied, Chrome can take the form as
+       sent and offer to save a password Clerk turned down. */
+    const clear = () => { field.value = ""; };
+    const again = () => { field.focus(); field.select(); };
+    const value = field.value;
+    if (value.length < field.minLength) { again(); toast(PASSWORD_SAID.short); return; }
+    /* Bytes, not characters: an accented letter is two, an emoji four. */
+    if (new TextEncoder().encode(value).length > 72) { again(); toast(PASSWORD_SAID.long); return; }
+    const sent = BB.store.write("password", () => BB.auth.setPassword(value));
+    if (!sent) return;
+    sent.then(saved => {
+      if (!saved) return;
+      clear();
+      toast("Password saved. Next time, sign in with it instead of a code.");
+      if (BB.state.screen !== "settings") return;
+      const live = document.querySelector("[data-password-form]");
+      BB.state.passwordRow = live ? live.getBoundingClientRect().height : 0;
+      render();
+    }, err => {
+      again();
+      toast((err && PASSWORD_SAID[err.outcome]) || "The password could not be saved. Try again.");
+    });
+  }
+  /* The form is sent by script alone: the browser's own submit would load
+     the page again. */
+  document.addEventListener("submit", e => {
+    const form = e.target.closest("[data-password-form]");
+    if (!form) return;
+    e.preventDefault();
+    savePassword(form);
+  });
+
   /* Delegated once, at the document level, so it survives every re-render. */
   document.addEventListener("click", e => {
     /* An open menu closes on any click that lands outside it. The click is

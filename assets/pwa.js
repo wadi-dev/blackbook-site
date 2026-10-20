@@ -131,14 +131,17 @@
 
   /* ---- iOS: the hint ------------------------------------------------------ */
 
+  /* Declared before the block below, which draws the bar while this file is
+     still running. Declared after it, this line set the new bar back to
+     null, and Dismiss then found nothing to remove. */
+  var bar = null;
+
   if (wantsInstallUi && isIOS && !isStandalone && !dismissed()) {
     if (document.body) showBar("ios");
     else document.addEventListener("DOMContentLoaded", function () { showBar("ios"); });
   }
 
   /* ---- The bar ------------------------------------------------------------- */
-
-  var bar = null;
 
   /* Styles are set through the CSSOM rather than a style attribute or an
      injected <style> element, so this file keeps working if style-src

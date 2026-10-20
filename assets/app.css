@@ -932,6 +932,25 @@ select {
 .set-row:last-child { border-bottom: 0; }
 .set-row .t { font-weight: 650; font-size: 14px; }
 .set-row .d { font-size: 12.5px; color: var(--muted); max-width: 46ch; margin-top: 2px; }
+/* Settings' Password form (profile.js): under the sentence, the field across
+   the card, so its "At least 15 characters" shows whole in the narrow
+   column, and the button under it, where the other rows keep theirs. Drawn
+   like the app's other fields. Scoped to the form, so the password field
+   Clerk draws on signin.html is left as Clerk draws it. 16px and 44px on a
+   touch screen, with the other fields (pointer: coarse, below). */
+.set-pw { row-gap: 12px; }
+.set-pw .set-pw-f { flex: 1 0 100%; min-width: 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.set-pw input[type="password"] {
+  flex: 1 0 100%; min-width: 0;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--line); border-radius: 9px;
+  padding: 10px 12px; font-size: 14.5px; outline: none;
+  transition: border-color .14s var(--ease);
+}
+.set-pw input[type="password"]:focus { border-color: var(--accent); }
+/* Saved on this visit, the row is held at the form's height (profile.js),
+   and the sentence stays at the top, where the form's was. */
+.set-row[data-password-saved] { align-content: flex-start; }
 
 /* --------------------------------------------------------------- admin --- */
 /* The broker's desk. The same three moves as everywhere else: hairline cards,
@@ -1026,9 +1045,9 @@ select {
      weight, after them (8 October 2026). Without it Home's ask, the Gives
      form and Admin's fields stayed at 14px. The search on Members is 25px
      and type search, so it is left out. */
-  .fld input, .fld textarea, .fld select, .admin-filter input,
+  .fld input, .fld textarea, .fld select, .admin-filter input, .set-pw input[type="password"],
   input[type="text"], input[type="email"], input[type="url"] { font-size: 16px; }
-  .fld textarea, .fld select, .admin-filter input,
+  .fld textarea, .fld select, .admin-filter input, .set-pw input[type="password"],
   input[type="text"], input[type="search"], input[type="email"], input[type="url"] {
     min-height: 44px;
   }

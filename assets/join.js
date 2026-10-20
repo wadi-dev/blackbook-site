@@ -42,7 +42,7 @@
   // typed) never reaches the page.
   const LABELS = {
     code: "invitation code", first_name: "first name", last_name: "last name",
-    email: "email address", role_title: "role", firm: "firm", city: "city",
+    email: "email address", role_title: "role", firm: "firm, family office or holding company", city: "city",
     linkedin_url: "LinkedIn profile URL", accept: "acceptance of the terms"
   };
 

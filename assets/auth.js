@@ -112,19 +112,20 @@
     });
   }
 
-  /* One setting from the dashboard, read off the instance environment that
+  /* Two settings from the dashboard, read off the instance environment that
      ClerkJS fetches on load and keeps: whether passkeys are on (passkeys()
-     below). The accessor is marked unstable in v5 and was renamed in v6, so
-     both names are tried. Keys inside user settings stay snake_case.
+     below) and whether password sign-in is on (password()). The accessor is
+     marked unstable in v5 and was renamed in v6, so both names are tried.
+     Keys inside user settings stay snake_case.
      How members sign in is the dashboard's to decide. Until 15 October 2026
      this file refused to start sign-in on an instance that accepted
      passwords; passwords and passkeys are allowed since the founder's
      decision of 10 October 2026, and docs/clerk.md has the settings. */
-  function passkeyIsOn(clerk) {
+  function isOn(clerk, attribute) {
     const env = clerk && (clerk.__unstable__environment || clerk.__internal_environment);
-    const pk = env && env.userSettings && env.userSettings.attributes
-      && env.userSettings.attributes.passkey;
-    return Boolean(pk && pk.enabled);
+    const a = env && env.userSettings && env.userSettings.attributes
+      && env.userSettings.attributes[attribute];
+    return Boolean(a && a.enabled);
   }
 
   /* Clerk's components are themed from our tokens, read at mount so the
@@ -161,6 +162,31 @@
   }
 
   let clerk = null;
+
+  /* Whether a Clerk API error carries a given code. ClerkJS puts the
+     server's errors, each with its code, on `errors`. */
+  const coded = (e, code) => Boolean(e) && Array.isArray(e.errors)
+    && e.errors.some(x => x && x.code === code);
+
+  /* Clerk counts adding a passkey and setting a password as sensitive
+     actions: more than ten minutes after the member last proved who they
+     are, its server refuses with session_reverification_required. Clerk's own
+     account page then opens its "Verify it's you" window and tries again, and
+     so do addPasskey() and setPassword(), through the same call Clerk's
+     components use. Resolves true once the member has verified, false if
+     they closed the window, and null when it cannot be opened (the call is
+     Clerk's internal one and may go in a release), after which every try is
+     refused the same way until the member signs in again. */
+  const reverified = () => new Promise(resolve => {
+    if (typeof clerk.__internal_openReverification !== "function") { resolve(null); return; }
+    try {
+      clerk.__internal_openReverification({
+        afterVerification: () => resolve(true),
+        afterVerificationCancelled: () => resolve(false),
+        appearance: appearance()
+      });
+    } catch (opening) { resolve(null); }
+  });
 
   /* The demo is signed in from the first byte. A visit to signin.html has
      nothing to mount, so it goes where a signed-in visitor always goes. */
@@ -220,16 +246,19 @@
 
   /* Staff or not, decided by the API and by nothing on this side. There is
      no role flag in the token or the config to read, and one here would be a
-     claim the API never made. GET /api/broker/queue is staff-only and answers
-     a member with the same 404 an unregistered path gets, so a member learns
-     nothing from the probe and neither does anyone reading this file. The
-     answer is kept for the session; a failure that is not a 404 (offline,
-     say) is not an answer, so the next call asks again. */
+     claim the API never made. GET /api/me, which every page reads anyway
+     through the store, answers staff with their staff view, which carries
+     `role`, and a member with their own view, which has no such key. It
+     writes nothing (20 October 2026). The staff lists this used to ask did:
+     a read of the introduction queue records a look at both parties on each
+     row, and a read of the inquiries records that they were reviewed and
+     brings every inquirer's name and email onto a page that may not show
+     them. The answer is kept for the session; a failure (offline, say) is
+     not an answer, so the next call asks again. */
   let staff = null;
   const isStaff = () => {
     if (!staff) {
-      staff = ready.then(() => root.api("/api/broker/queue")).then(() => true, e => {
-        if (e && e.status === 404) return false;
+      staff = ready.then(() => root.store.need("me")).then(([me]) => Boolean(me && me.role), () => {
         staff = null;
         return false;
       });
@@ -293,7 +322,7 @@
        are off in the dashboard, and in a browser that cannot make one. So
        the row appears on the first load after the founder turns them on. */
     passkeys: () => {
-      if (DEV_BEARER || !clerk || !clerk.user || !passkeyIsOn(clerk)) return null;
+      if (DEV_BEARER || !clerk || !clerk.user || !isOn(clerk, "passkey")) return null;
       if (typeof window.PublicKeyCredential !== "function") return null;
       return { count: (clerk.user.passkeys || []).length };
     },
@@ -301,21 +330,16 @@
     /* Asks the browser to make a passkey and Clerk to keep it. Resolves true
        once Clerk has it, false if the member closed the prompt, and rejects
        on anything else.
-       Clerk counts adding a passkey as a sensitive action: more than ten
-       minutes after the member last proved who they are, its server refuses
-       with session_reverification_required. Clerk's own account page then
-       opens its "Verify it's you" window and tries again, and so does this,
-       through the same call Clerk's components use. Closing that window is a
-       cancel too. A failure the browser reports is wrapped by ClerkJS in an
-       error with a code, so the codes for a cancelled or aborted prompt are
-       checked as well as the browser's own names.
+       Clerk's "Verify it's you" step is handled by reverified() above, and
+       closing that window is a cancel too. A failure the browser reports is
+       wrapped by ClerkJS in an error with a code, so the codes for a
+       cancelled or aborted prompt are checked as well as the browser's own
+       names.
        Two failures that another tap cannot fix reject with `passkey` set, so
        Settings can say what will work (boot.js): "exists", a passkey for this
        account already on this device (Clerk's passkey_already_exists, the
        browser's InvalidStateError), and "reverify", when the "Verify it's
-       you" window cannot be opened (the call is Clerk's internal one and may
-       go in a release), after which every tap is refused the same way until
-       the member signs in again. */
+       you" window cannot be opened. */
     addPasskey: async () => {
       await ready;
       if (!root.auth.passkeys()) throw new Error("Passkeys are not available here.");
@@ -323,8 +347,7 @@
         || e.code === "passkey_registration_cancelled" || e.code === "passkey_operation_aborted");
       const exists = e => Boolean(e) && (e.name === "InvalidStateError"
         || e.code === "passkey_already_exists");
-      const reverify = e => Boolean(e) && Array.isArray(e.errors)
-        && e.errors.some(x => x && x.code === "session_reverification_required");
+      const reverify = e => coded(e, "session_reverification_required");
       const marked = (e, why) => Object.assign(new Error("Passkey not added: " + why), { passkey: why, cause: e });
       const make = () => clerk.user.createPasskey();
       try {
@@ -333,16 +356,7 @@
         if (cancelled(e)) return false;
         if (exists(e)) throw marked(e, "exists");
         if (!reverify(e)) throw e;
-        if (typeof clerk.__internal_openReverification !== "function") throw marked(e, "reverify");
-        const verified = await new Promise(resolve => {
-          try {
-            clerk.__internal_openReverification({
-              afterVerification: () => resolve(true),
-              afterVerificationCancelled: () => resolve(false),
-              appearance: appearance()
-            });
-          } catch (opening) { resolve(null); }
-        });
+        const verified = await reverified();
         if (verified === null) throw marked(e, "reverify");
         if (!verified) return false;
         try { await make(); } catch (again) {
@@ -352,6 +366,48 @@
         }
       }
       /* The count Settings draws is read off the user, so it is read again. */
+      await clerk.user.reload().catch(() => {});
+      return true;
+    },
+
+    /* What Settings needs to offer a password: { has }, whether the account
+       already has one, or null when there is nothing to offer. Null in the
+       demo and on the harness (no Clerk), with nobody signed in, and while
+       password sign-in is off in the dashboard. */
+    password: () => {
+      if (DEV_BEARER || !clerk || !clerk.user || !isOn(clerk, "password")) return null;
+      return { has: Boolean(clerk.user.passwordEnabled) };
+    },
+
+    /* Gives the account a password (clerk.user.updatePassword). The password
+       goes to Clerk and nowhere else: nothing here keeps it, logs it or puts
+       it in an error. Resolves true once Clerk has it, and false if the
+       member closed the "Verify it's you" window (reverified() above).
+       Every refusal rejects with `outcome` set, so Settings can say what
+       will work (boot.js): "breached", a password Clerk found in a known
+       breach (form_password_pwned); "short", under the dashboard's minimum
+       length (form_password_length_too_short); "reverify", when the "Verify
+       it's you" window cannot be opened; and "failed", anything else. The
+       codes are ClerkJS 5.128's. */
+    setPassword: async newPassword => {
+      await ready;
+      const marked = (e, why) => Object.assign(new Error("Password not saved: " + why), { outcome: why, cause: e });
+      if (!root.auth.password()) throw marked(null, "failed");
+      const refused = e => marked(e, coded(e, "form_password_pwned") ? "breached"
+        : coded(e, "form_password_length_too_short") ? "short"
+        : coded(e, "form_password_length_too_long") || coded(e, "form_password_size_in_bytes_exceeded") ? "long"
+        : "failed");
+      const save = () => clerk.user.updatePassword({ newPassword });
+      try {
+        await save();
+      } catch (e) {
+        if (!coded(e, "session_reverification_required")) throw refused(e);
+        const verified = await reverified();
+        if (verified === null) throw marked(e, "reverify");
+        if (!verified) return false;
+        try { await save(); } catch (again) { throw refused(again); }
+      }
+      /* Whether there is a password is read off the user, so it is read again. */
       await clerk.user.reload().catch(() => {});
       return true;
     },
