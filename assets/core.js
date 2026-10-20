@@ -623,8 +623,10 @@ const loadCard = id => {
 const cardRefused = err => toast(err && err.status === 404
   ? "That card is not available." : (err && err.detail) || "Could not load the card.");
 
-/* The bar shows the sector and nothing else: the one thing every card has,
-   a stranger's included. */
+/* The bar shows the sector and nothing else, and only a record has one to
+   show: the founder seat reading a card, or a member reading their own. The
+   API sends no member another member's sector, so on a stranger's card and
+   a connection's the bar holds the buttons alone. */
 function detailBody(m) {
   return `
     <div class="detail-bar"><div class="inner">

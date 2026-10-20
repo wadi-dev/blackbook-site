@@ -164,17 +164,17 @@ BB.screens.search = function () {
   <div class="page-head">
     <div><h1>Search</h1>
       <p class="sub">One field, no operators. It matches words against what members
-        have declared: their seat, their sector, what they can open and what they need.</p></div>
+        have declared: their seat, what they can open and what they need.</p></div>
   </div>
 
   <div class="search-field">
     ${svg(ICON.search)}
-    <input id="q" type="search" placeholder="Sector, seat, or what you need opened"
+    <input id="q" type="search" placeholder="Seat, city, or what you need opened"
       value="${esc(q)}" autocomplete="off" spellcheck="false">
   </div>
 
   <div class="veil" style="margin:18px 0 22px">
-    <b>Strangers are anonymised.</b> You see the seat, the sector and the path, never
+    <b>Strangers are anonymised.</b> You see the seat, the city and the path, never
     the name, until both sides opt in. People already in your network are shown openly,
     because you already know them.
   </div>
@@ -209,7 +209,7 @@ BB.screens.search = function () {
             <div class="tile veiled" aria-hidden="true" style="width:46px;height:46px">··</div>
             <span class="grow">
               <span class="who">${esc(r.role)}</span>
-              <span class="sub">${esc(r.sector)} · ${esc(r.sub)} · ${esc(r.city)}</span>
+              <span class="sub">${esc(r.city)}</span>
               <span class="eyebrow" style="display:block;margin-top:5px">${esc(r.path)}</span>
             </span>
             <button class="btn sm" data-act="request">Request</button>

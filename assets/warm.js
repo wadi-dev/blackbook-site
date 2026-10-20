@@ -10,9 +10,9 @@
    The request carries nothing: no token, no cookie and no header of ours,
    so the browser sends it without a preflight, and its answer is never
    read. keepalive lets it finish if the page moves on first, to sign in
-   say. Every failure is ignored, a refusal included (the API allows five a
-   minute from one address, shared with the join and inquiry doors): it is a
-   head start, never a step anything waits on.
+   say. Every failure is ignored, a refusal included (the API allows ten a
+   minute from one address, an allowance of its own, apart from the join and
+   inquiry doors' five): it is a head start, never a step anything waits on.
 
    On the sign-in page, where finding the code in an email can take a
    while, it goes once more after four minutes, so the database is still
@@ -21,9 +21,8 @@
    On the invitation door it is not sent when the address carries a code
    (enter.html?code=..., a concierge link). join.js then checks the code as
    the page loads, which wakes the database itself, so a warm would add
-   nothing and would spend one of the five tries a minute the joiner has for
-   checking the code and joining. Without a code in the address it goes as
-   anywhere else: the joiner is pasting one, and Continue is the next step.
+   nothing. Without a code in the address it goes as anywhere else: the
+   joiner is pasting one, and Continue is the next step.
 
    Never on index.html: a visitor to the front page is not about to need
    the database, and waking it for them would spend the free plan's hours on

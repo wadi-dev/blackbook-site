@@ -6,9 +6,9 @@
    and fetched only when this screen first mounts).
    You are the large node in the middle. The people you invited are filled
    and named, because the join door connected you to each of them. The
-   people they invited are outlined and veiled: a handle, which is a role
-   and a sector, until the two of you are connected. The API decides who is
-   named, so there is never a name here to hide.
+   people they invited are outlined and veiled: a handle, which is their
+   role and nothing more, until the two of you are connected. The API
+   decides who is named, so there is never a name here to hide.
 
    Rounded squares, never circles, as everywhere a person is drawn. Every
    colour is a token in app.css, so the graph follows the theme and the

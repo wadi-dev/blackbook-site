@@ -249,8 +249,9 @@ const API = {
      they invited (degree 1) and the people those invited (degree 2), and a
      line from each inviter to each invitee. A node's label is a name only
      when the two are connected (`known`); otherwise it is the seat's handle,
-     its role and sector, and nothing else. Anyone the API would not show
-     the caller is simply absent, with everything below them. Undefined
+     its role, and nothing else. A node's sector is always the empty string:
+     the API sends no member another member's sector. Anyone the API would
+     not show the caller is simply absent, with everything below them. Undefined
      until the answer is in: the Network screen names it in .wants, not
      .needs, and draws without it. */
   network() {
@@ -272,20 +273,22 @@ const API = {
   intros: () => BB.store.peek("introductions") || [],
 
   /* Met-in-person requests waiting on this member, as the veiled seat
-     (PeerView): handle, sector and city, and no name and no date. */
+     (PeerView): handle and city, and no name and no date. */
   tieRequests: () => BB.store.peek("tieRequests") || [],
 
   /* One member's card, as GET /api/members/{id} answered it. The store keeps
      a staff seat's read of it for the page session, a member's is read again
      on each opening (core.js), and openMember waits for it before anything
      draws. Told apart by its fields:
-       - "peer", a stranger (PeerView): a handle, which is their role and
-         sector, their city, and no name. `tie` is "none", or "pending"
+       - "peer", a stranger (PeerView): a handle, which is their role,
+         their city, and no name. `tie` is "none", or "pending"
          whichever of the two asked, and nothing may say which;
-       - "connection" (ConnectionView): name, role, firm, sector and city;
+       - "connection" (ConnectionView): name, role, firm and city;
        - "record": the founder seat reading anyone (StaffView), or a member
          reading their own id. Shown as a connection is, with nothing to do.
-     No founder mark on any of them (D13). */
+     The sector is the empty string on a peer and on a connection, since
+     the API sends no member another member's sector, and is filled only on
+     a record. No founder mark on any of them (D13). */
   member(id) {
     const v = BB.store.peek("member:" + id);
     if (!v) return undefined;
@@ -334,7 +337,7 @@ const API = {
      Veiling someone whose name you already have is theatre, and theatre is
      corrosive in a product whose whole claim is discretion. So:
        - already in your network  -> shown openly. You know them. Go and ask.
-       - anyone else              -> seat, sector and path only, no name,
+       - anyone else              -> seat, city and path only, no name,
                                      until both sides have opted in. */
   /* Word-level matching across everything a member has declared, including
      what they can open, which is the field people actually search for and the
@@ -363,7 +366,7 @@ const API = {
           ? { known: true, id: m.id, member: m, strength: tie.strength,
               path: "In your network" }
           : { known: false, id: m.id,
-              role: m.role, sector: m.sector, sub: m.sub, city: m.city,
+              role: m.role, city: m.city,
               path: "Second degree · " +
                     (1 + (m.id.charCodeAt(0) % 3)) + " shared connections" };
       });

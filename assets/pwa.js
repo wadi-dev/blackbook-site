@@ -52,30 +52,71 @@
   /* When a new worker takes the page over (sw.js calls skipWaiting and
      clients.claim), the page is still running the files the old worker
      served. Reload once, so it runs the new ones. Not on the very first
-     install, when the page already has the network's files, and not under
-     somebody's fingers: if a field has focus, the reload waits for it to
-     leave. */
+     install, when the page already has the network's files, and never under
+     somebody's fingers: at once only while no field has focus and no field
+     holds anything the member typed. Otherwise the page is left as it is,
+     stale but whole, and reloads the next time it is hidden with nothing
+     typed in it; a page opened from it meanwhile comes through the new
+     worker anyway. It used to reload when the focused field lost focus, but
+     that blur is the member's own tap on the next field, Continue or Send,
+     so the reload took what they had typed (20 October 2026). */
   var hadController = !!navigator.serviceWorker.controller;
+  /* Set when a new worker takes over from one this page already had. */
+  var stale = false;
+  var asked = false;
   var reloading = false;
+  /* Every field the member has typed in or changed on this page. */
+  var changed = [];
+  document.addEventListener("input", function (e) {
+    if (changed.indexOf(e.target) < 0) changed.push(e.target);
+  }, true);
   function typing() {
     var el = document.activeElement;
-    return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+    return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" ||
+      el.tagName === "SELECT" || el.isContentEditable);
+  }
+  /* A field still on the page that the member changed and has not put back
+     as the page drew it. */
+  function holding() {
+    changed = changed.filter(function (el) { return el.isConnected; });
+    return changed.some(function (el) {
+      if (el.isContentEditable) return true;
+      if (el.type === "checkbox" || el.type === "radio") return el.checked !== el.defaultChecked;
+      return el.value !== el.defaultValue;
+    });
   }
   function reloadOnce() {
     if (reloading) return;
     reloading = true;
     location.reload();
   }
+  /* Once, whichever of the two below asks first. */
+  function reloadSoon() {
+    if (asked) return;
+    asked = true;
+    if (!typing() && !holding()) { reloadOnce(); return; }
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "hidden" && !holding()) reloadOnce();
+    });
+  }
   navigator.serviceWorker.addEventListener("controllerchange", function () {
     if (!hadController) { hadController = true; return; }
-    /* The worker itself reloads the pages it claims (sw.js, activate). This
-       is the fallback for a browser that ignores that: a moment later, if
-       the page is still here, reload it from this side. */
-    setTimeout(function () {
-      if (!typing()) { reloadOnce(); return; }
-      document.activeElement.addEventListener("blur", reloadOnce, { once: true });
-    }, 1500);
+    stale = true;
+    /* The fallback, for a worker that never sends the message below: a
+       moment later, if the page is still here, reload it from this side. */
+    setTimeout(reloadSoon, 1500);
   });
+  /* A worker that has replaced an older shell tells each page that was open
+     when it took over, once it has activated (sw.js, activate). The answer
+     says this page decides for itself, so the worker does not reload it
+     too. A page the takeover found with no worker already has the
+     network's files, and stays as it is. */
+  navigator.serviceWorker.addEventListener("message", function (e) {
+    if (!e.data || e.data.type !== "bb-shell-updated") return;
+    if (e.source) e.source.postMessage({ type: "bb-reloads-itself" });
+    if (stale) reloadSoon();
+  });
+  if (navigator.serviceWorker.startMessages) navigator.serviceWorker.startMessages();
 
   var isStandalone =
     (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
@@ -133,8 +174,12 @@
 
   /* Declared before the block below, which draws the bar while this file is
      still running. Declared after it, this line set the new bar back to
-     null, and Dismiss then found nothing to remove. */
+     null, and Dismiss then found nothing to remove. The same holds for the
+     watcher that keeps the bar in place, and for the one waiting to put it
+     up (below). */
   var bar = null;
+  var watcher = null;
+  var stopWaiting = null;
 
   if (wantsInstallUi && isIOS && !isStandalone && !dismissed()) {
     if (document.body) showBar("ios");
@@ -167,23 +212,30 @@
     bar = document.createElement("div");
     bar.setAttribute("role", "region");
     bar.setAttribute("aria-label", "Add to home screen");
+    /* Under the tab bar (z-index 70) and the More sheet (80), so it can
+       never cover either. */
     style(bar, {
+      position: "fixed", left: "0", right: "0", bottom: "0", zIndex: "65",
       display: "flex", alignItems: "center", justifyContent: "center",
-      flexWrap: "wrap", gap: "10px 14px",
+      gap: "12px 16px",
       padding: "10px 16px",
       background: "var(--surface)", color: "var(--text)",
-      borderBottom: "1px solid var(--line)",
+      borderTop: "1px solid var(--line)",
       fontSize: "13.5px", lineHeight: "1.5"
     });
+    /* Above the home indicator. Set on its own, so a browser that refuses
+       env() keeps the plain 10px above. */
+    bar.style.paddingBottom = "calc(10px + env(safe-area-inset-bottom))";
 
     var text = document.createElement("span");
+    style(text, { flex: "0 1 auto" });
     text.textContent = kind === "ios"
       ? "Add Blackbook London to your home screen: tap Share, then Add to Home Screen."
       : "Add Blackbook London to your home screen.";
     bar.appendChild(text);
 
     var actions = document.createElement("span");
-    style(actions, { display: "inline-flex", gap: "8px" });
+    style(actions, { display: "inline-flex", gap: "8px", flex: "none" });
 
     if (kind === "chromium") {
       actions.appendChild(button("Install", "primary", function () {
@@ -197,21 +249,129 @@
 
     bar.appendChild(actions);
 
-    /* In document flow at the top of the body, above the sticky topbar, so
-       it scrolls away with the page and never overlaps the tab bar. On a
-       screen already drawn, the page is scrolled by the bar's height, so
-       nothing the member is reading or reaching for moves; the bar waits
-       above, where scrolling up finds it. Where the browser's own scroll
-       anchoring has already done this, the difference is nothing. */
-    var scr = document.getElementById("screen");
-    var top0 = scr ? scr.getBoundingClientRect().top : 0;
-    document.body.insertBefore(bar, document.body.firstChild);
-    if (scr && scr.childElementCount) window.scrollBy(0, scr.getBoundingClientRect().top - top0);
+    /* Fixed to the bottom of the screen, out of the page's flow, so its
+       arriving moves nothing on the page (20 October 2026). It used to go
+       in above the page, which then had to be scrolled by its height to
+       keep still, and that left the bar above the top of the screen, where
+       nobody saw it. Being fixed, it would sit over whatever the screen has
+       there, so it goes up only at a moment when it covers no control
+       (below). */
+    waitForRoom();
+  }
+
+  /* The bar waits out of the page until the tab bar is showing, which it
+     is not before /api/me has answered nor at any point in onboarding,
+     whose form the bar must not sit over. It also waits while the screen
+     is still a skeleton, since the screen's own controls are about to take
+     its place, and for a moment when no control lies under the bar's box.
+     It looks again whenever the tab bar or the screen changes, the window
+     is resized, or a scroll comes to rest. Each look is made just before a
+     frame, so the bar goes up in the same frame as the screen it fits, or
+     not at all. From the first look the page's end has room for the bar
+     (place), so a scroll can always find it a clear place. Once up it stays
+     until dismissed, and content scrolls under it as it does under the tab
+     bar. On Home, for a member with nothing declared, the Manage button of
+     What you can open sits where the bar would, so there it waits for a
+     scroll. */
+  function waitForRoom() {
+    var tabbar = document.getElementById("tabbar");
+    var screen = document.getElementById("screen");
+    if (!tabbar || !screen) return;
+    var queued = false;
+    var rest = null;
+    function soon() {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(function () { queued = false; tryShow(); });
+    }
+    function rested() {
+      clearTimeout(rest);
+      rest = setTimeout(soon, 150);
+    }
+    var changes = new MutationObserver(soon);
+    changes.observe(tabbar, { attributes: true, attributeFilter: ["hidden"] });
+    changes.observe(screen, { childList: true });
+    window.addEventListener("scroll", rested, { passive: true });
+    window.addEventListener("resize", soon);
+    stopWaiting = function () {
+      changes.disconnect();
+      window.removeEventListener("scroll", rested);
+      window.removeEventListener("resize", soon);
+      clearTimeout(rest);
+      stopWaiting = null;
+    };
+    soon();
+  }
+
+  function tryShow() {
+    if (!bar || bar.isConnected) return;
+    var tabbar = document.getElementById("tabbar");
+    if (!tabbar || tabbar.hidden) return;
+    if (document.querySelector("#screen [data-skeleton]")) return;
+    /* Put up and measured inside this one frame; taken down again before
+       it paints if it would cover anything. */
+    document.body.appendChild(bar);
+    place();
+    if (covers()) { bar.remove(); return; }
+    stopWaiting();
+    if (window.ResizeObserver) {
+      watcher = new ResizeObserver(place);
+      watcher.observe(bar);
+      watcher.observe(tabbar);
+    }
+  }
+
+  /* Whether the bar is on top of any part of a control: a point across the
+     middle of where the two overlap finds the bar rather than the control.
+     The tab bar and the More sheet stack above the bar, so their own
+     buttons are never under it. */
+  var CONTROLS = 'button, a[href], input, select, textarea, [role="button"], [tabindex]:not([tabindex="-1"])';
+  function covers() {
+    var b = bar.getBoundingClientRect();
+    var els = document.querySelectorAll(CONTROLS);
+    for (var i = 0; i < els.length; i++) {
+      if (bar.contains(els[i])) continue;
+      var r = els[i].getBoundingClientRect();
+      var top = Math.max(r.top, b.top), bottom = Math.min(r.bottom, b.bottom);
+      var left = Math.max(r.left, b.left), right = Math.min(r.right, b.right);
+      if (bottom <= top || right <= left) continue;
+      var y = (top + bottom) / 2;
+      var xs = [0.1, 0.5, 0.9];
+      for (var j = 0; j < xs.length; j++) {
+        var hit = document.elementFromPoint(left + (right - left) * xs[j], y);
+        if (hit && bar.contains(hit)) return true;
+      }
+    }
+    return false;
+  }
+
+  /* On a phone the bar sits on top of the tab bar whenever the tab bar is
+     showing, which it does only once /api/me has answered (core.js). It is
+     lifted by a transform, which moves nothing else and is not a layout
+     shift, by the tab bar's height less its safe area padding; the bar's own
+     padding for the home indicator then sits behind the tab bar. The page
+     gains the bar's height at its end, where adding space moves nothing,
+     so its last line can still be scrolled clear of the bar. */
+  function place() {
+    if (!bar) return;
+    var tabbar = document.getElementById("tabbar");
+    var lift = 0;
+    if (tabbar && tabbar.offsetHeight) {
+      /* Rounded down, so a tab bar of fractional height overlaps the bar's
+         padding rather than leaving a hairline of page between the two. */
+      lift = Math.floor(tabbar.getBoundingClientRect().height -
+        (parseFloat(getComputedStyle(tabbar).paddingBottom) || 0));
+    }
+    bar.style.transform = lift ? "translateY(" + -lift + "px)" : "";
+    document.body.style.paddingBottom = bar.offsetHeight + "px";
   }
 
   function removeBar() {
     if (!bar) return;
+    if (stopWaiting) stopWaiting();
+    if (watcher) { watcher.disconnect(); watcher = null; }
     bar.remove();
     bar = null;
+    document.body.style.paddingBottom = "";
   }
 })();

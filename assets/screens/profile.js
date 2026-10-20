@@ -1,9 +1,9 @@
 /* A member's card, the destination of the one signature motion.
 
    It shows what the API answered (API.member) and nothing else. A stranger
-   is a seat: their role and sector as a handle, their city, and a tile with
-   nothing on it, never a name. A connection, someone you have both
-   confirmed, is a name, role, firm and city. Neither shows what they can
+   is a seat: their role as a handle, their city, and a tile with nothing
+   on it, never a name and never their sector. A connection, someone you
+   have both confirmed, is a name, role, firm and city. Neither shows what they can
    open or what they need, because other members do not see either in the
    app, and there is no founder mark on either (D13).
 

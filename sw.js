@@ -20,7 +20,7 @@
 
 "use strict";
 
-const VERSION = "2026-10-20.1";
+const VERSION = "2026-10-20.2";
 const CACHE = "blackbook-shell-" + VERSION;
 
 /* Every file the shell needs, and only those. Paths are relative to sw.js,
@@ -106,23 +106,94 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys()
-      .then((names) => Promise.all(
-        names
-          .filter((name) => name.startsWith("blackbook-shell-") && name !== CACHE)
-          .map((name) => caches.delete(name))
-      ))
-      .then(() => self.clients.claim())
-      /* The pages this worker has just claimed are still running the files
-         the old one served them. Reload each so they run this version's.
-         Done here rather than only in pwa.js, because a page loaded under
-         an old worker runs old pwa.js, which may know nothing of this. */
-      .then(() => self.clients.matchAll({ type: "window" }))
-      .then((wins) => Promise.all(wins.map((w) =>
-        w.navigate(w.url).catch(() => {}))))
-  );
+  /* True when an older shell cache was here, so this activation is an
+     update. False on a first install, where every open page came from the
+     network and already runs this version's files. */
+  const updated = caches.keys().then((names) => {
+    const old = names.filter((name) => name.startsWith("blackbook-shell-") && name !== CACHE);
+    return Promise.all(old.map((name) => caches.delete(name))).then(() => old.length > 0);
+  });
+  /* The windows open before this worker claims them. On an update, each is
+     running the files an older worker served it. */
+  const open = self.clients.matchAll({ type: "window", includeUncontrolled: true });
+
+  /* The cleanup and the claim, and nothing else. Activation used to wait on
+     reloading the pages as well, but a page's navigation waits for this
+     worker to finish activating, so the two waited on each other until
+     Chrome's five minute event timeout gave up (20 October 2026). */
+  event.waitUntil(updated.then(() => self.clients.claim()));
+
+  navigating = new Set();
+  Promise.all([updated, open]).then(([isUpdate, wins]) => {
+    if (isUpdate && wins.length) afterActivation(() => refreshPages(wins));
+    else navigating = null;
+  }).catch(() => { navigating = null; });
 });
+
+/* Runs `fn` once this worker is activated, when a navigation it starts can
+   be answered. */
+function afterActivation(fn) {
+  const me = self.registration.active;
+  if (!me || me.state === "activated") { fn(); return; }
+  me.addEventListener("statechange", function wait() {
+    if (me.state === "activating") return;
+    me.removeEventListener("statechange", wait);
+    if (me.state === "activated") fn();
+  });
+}
+
+/* The pages open when this worker took over must reload, so they run this
+   version's files. Each is told first: pwa.js answers, and reloads itself
+   when nobody is typing in it, so the worker leaves it be. A page that has
+   not answered after RELOAD_GRACE_MS is running an older pwa.js, or none
+   (offline.html), and the worker reloads it, with two exceptions.
+   - A page with a reload of its own on the way: a navigation to its address
+     has reached this worker since the pages were told. The pwa.js of 18
+     September to 20 October 2026 reloads itself 1.5 seconds after the
+     takeover, and on a slow network that reload is still in flight at the
+     grace check; a second navigation would only cancel it and start over.
+   - A page in front of the member, focused and visible, where they may be
+     typing. It is looked at again every RECHECK_MS and reloaded once it is
+     hidden or has lost focus. The same older pwa.js reloads such a page
+     itself when its focused field loses focus, which no worker can stop;
+     the worker at least does not do it sooner, in the middle of a word.
+   A page that has reloaded is a new client with a new id, so no page is
+   reloaded twice. The looking stops when the browser stops this worker for
+   being idle; a page still waiting then loads the new files at its next
+   navigation. */
+const RELOAD_GRACE_MS = 3000;
+const RECHECK_MS = 2000;
+const SELF_RELOADING = new Set();
+/* Page addresses navigated to since this worker activated, while there are
+   pages it may still reload. Null otherwise. */
+let navigating = null;
+
+const bare = (href) => { const u = new URL(href); u.hash = ""; return u.href; };
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "bb-reloads-itself" && event.source) {
+    SELF_RELOADING.add(event.source.id);
+  }
+});
+
+function refreshPages(wins) {
+  const waiting = new Set(wins.map((w) => w.id));
+  wins.forEach((w) => w.postMessage({ type: "bb-shell-updated" }));
+  const look = () => self.clients.matchAll({ type: "window" }).then((now) => {
+    const here = new Set(now.map((w) => w.id));
+    waiting.forEach((id) => { if (!here.has(id)) waiting.delete(id); });
+    now.forEach((w) => {
+      if (!waiting.has(w.id)) return;
+      if (SELF_RELOADING.has(w.id) || navigating.has(bare(w.url))) { waiting.delete(w.id); return; }
+      if (w.focused && w.visibilityState === "visible") return;
+      waiting.delete(w.id);
+      w.navigate(w.url).catch(() => {});
+    });
+    if (waiting.size) setTimeout(look, RECHECK_MS);
+    else navigating = null;
+  }).catch(() => { navigating = null; });
+  setTimeout(look, RELOAD_GRACE_MS);
+}
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
@@ -144,6 +215,7 @@ self.addEventListener("fetch", (event) => {
      the next open, the precached copy stands in when the network fails, and
      offline.html covers a page that was never cached. */
   if (request.mode === "navigate") {
+    if (navigating) navigating.add(bare(url.href));
     /* Past the HTTP cache: the host serves pages with a ten minute max-age,
        and a launch inside that window would otherwise get the previous
        page. no-cache revalidates by ETag, so an unchanged page costs a 304. */
